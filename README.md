@@ -40,9 +40,9 @@ It exposes a REST API on Port 80:
 
 ## 🛠 Build
 To build the different examples
-'''
+```
 pio run -e coordinator_c6 -t upload -t monitor
-'''
+```
 
 ## Development
 - **Core Logic:** C++17 (Arduino/ESP-IDF)
