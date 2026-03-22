@@ -3,8 +3,85 @@
 #include <WebServer.h>
 #include <esp_wifi.h>
 #include <ArduinoJson.h>
+#include <Adafruit_NeoPixel.h>
 #include "secrets.h"
 #include "UniversalMesh.h"
+
+// --- RGB LED ---
+constexpr uint8_t LED_PIN  = 8;
+Adafruit_NeoPixel rgbLed(1, LED_PIN, NEO_GRB + NEO_KHZ800);
+
+struct RGB { uint8_t r, g, b; };
+constexpr RGB COLOR_OFF    = {  0,   0,   0};
+constexpr RGB COLOR_GREEN  = {  0, 255,   0};
+constexpr RGB COLOR_RED    = {255,   0,   0};
+constexpr RGB COLOR_BLUE   = {  0,   0, 255};
+constexpr RGB COLOR_YELLOW = {255, 200,   0};
+
+enum LedState { LED_CONNECTING, LED_CONNECTED, LED_NO_WIFI, LED_TX_BLINK, LED_RX_BLINK };
+LedState ledState     = LED_CONNECTING;
+LedState ledPrevState = LED_CONNECTING;
+unsigned long ledTimer = 0;
+bool ledToggle = false;
+constexpr unsigned long BLINK_INTERVAL = 300;  // ms between connecting blinks
+constexpr unsigned long FLASH_ON  = 250;        // ms LED on  per TX/RX blink
+constexpr unsigned long FLASH_OFF = 250;         // ms LED off per TX/RX blink
+constexpr uint8_t       FLASH_COUNT = 3;        // number of TX/RX blinks
+
+int8_t ledFlashRemaining = 0;  // blinks left (counts down)
+
+void setColor(const RGB& c, uint8_t brightness = 50) {
+  uint16_t s = (uint16_t)brightness * 255 / 100;
+  rgbLed.setPixelColor(0, rgbLed.Color((c.r * s) / 255, (c.g * s) / 255, (c.b * s) / 255));
+  rgbLed.show();
+}
+
+void ledFlash(LedState flashState) {
+  if (ledState == LED_TX_BLINK || ledState == LED_RX_BLINK) return; // don't interrupt ongoing flash
+  ledPrevState = ledState;
+  ledState = flashState;
+  ledFlashRemaining = FLASH_COUNT;
+  ledToggle = true;
+  ledTimer = millis();
+  setColor(flashState == LED_TX_BLINK ? COLOR_BLUE : COLOR_YELLOW);
+}
+
+void ledUpdate() {
+  unsigned long now = millis();
+  switch (ledState) {
+    case LED_CONNECTING:
+      if (now - ledTimer >= BLINK_INTERVAL) {
+        ledToggle = !ledToggle;
+        setColor(ledToggle ? COLOR_GREEN : COLOR_OFF);
+        ledTimer = now;
+      }
+      break;
+    case LED_CONNECTED:
+    case LED_NO_WIFI:
+      break; // steady — color already set on transition
+    case LED_TX_BLINK:
+    case LED_RX_BLINK: {
+      unsigned long phase = ledToggle ? FLASH_ON : FLASH_OFF;
+      if (now - ledTimer >= phase) {
+        ledToggle = !ledToggle;
+        if (ledToggle) {
+          // starting a new on-phase = new blink
+          ledFlashRemaining--;
+          if (ledFlashRemaining <= 0) {
+            ledState = ledPrevState;
+            setColor(ledState == LED_CONNECTED ? COLOR_GREEN : COLOR_RED);
+            break;
+          }
+          setColor(ledState == LED_TX_BLINK ? COLOR_BLUE : COLOR_YELLOW);
+        } else {
+          setColor(COLOR_OFF);
+        }
+        ledTimer = now;
+      }
+      break;
+    }
+  }
+}
 
 
 
@@ -45,6 +122,8 @@ UniversalMesh mesh;
 // --- RECEIVE CALLBACK ---
 // Triggers when the mesh library catches a packet meant for us (or broadcast)
 void onMeshMessage(MeshPacket* packet, uint8_t* senderMac) {
+  ledFlash(LED_RX_BLINK);
+
   // 1. Immediately log the node in the routing table
   updateNodeTable(packet->srcMac);
 
@@ -85,22 +164,40 @@ void setup() {
   uint32_t t = millis();
   while (!Serial && (millis() - t) < 5000) { delay(10); }
   
+  rgbLed.begin();
+  rgbLed.show();
+  ledTimer = millis();
+
   Serial.println("\n=== MESH MASTER BRIDGE INITIALIZING ===");
 
   // 1. Connect to Home Wi-Fi
   WiFi.mode(WIFI_STA);
   WiFi.begin(WIFI_SSID, WIFI_PASS);
   Serial.printf("[WIFI] Connecting to %s\n", WIFI_SSID);
-  
-  while (WiFi.status() != WL_CONNECTED) { 
-    delay(500); 
-    Serial.print("."); 
+
+  constexpr unsigned long WIFI_TIMEOUT_MS = 15000;
+  unsigned long wifiStart = millis();
+  while (WiFi.status() != WL_CONNECTED && (millis() - wifiStart) < WIFI_TIMEOUT_MS) {
+    // Blink green (blocking phase — inline is fine)
+    setColor(COLOR_GREEN); delay(300);
+    setColor(COLOR_OFF);   delay(300);
+    Serial.print(".");
   }
-  esp_wifi_set_ps(WIFI_PS_NONE); 
-  
-  uint8_t chan = WiFi.channel();
-  Serial.printf("\n[WIFI] Connected! API IP: %s\n", WiFi.localIP().toString().c_str());
-  Serial.printf("[WIFI] Operating Channel: %d\n", chan);
+
+  if (WiFi.status() == WL_CONNECTED) {
+    esp_wifi_set_ps(WIFI_PS_NONE);
+    ledState = LED_CONNECTED;
+    setColor(COLOR_GREEN);
+    uint8_t chan = WiFi.channel();
+    Serial.printf("\n[WIFI] Connected! API IP: %s\n", WiFi.localIP().toString().c_str());
+    Serial.printf("[WIFI] Operating Channel: %d\n", chan);
+  } else {
+    ledState = LED_NO_WIFI;
+    setColor(COLOR_RED);
+    Serial.println("\n[WIFI] Connection failed! Running offline.");
+  }
+
+  uint8_t chan = (WiFi.status() == WL_CONNECTED) ? WiFi.channel() : 6;
 
   // 2. Initialize Universal Mesh on the Router's Channel
   if (mesh.begin(chan)) {
@@ -140,6 +237,7 @@ server.on("/api/tx", HTTP_POST, []() {
       
       // Hardcoded to MESH_TYPE_DATA (0x15)
       mesh.send(destMac, MESH_TYPE_DATA, appId, payloadBytes, payloadLen, ttl);
+      ledFlash(LED_TX_BLINK);
       server.send(200, "application/json", "{\"status\":\"data_sent\"}");
     }
   });
@@ -196,6 +294,9 @@ void loop() {
       uint8_t destMac[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
       const char* payload = "Serial Test Pkt";
       mesh.send(destMac, MESH_TYPE_DATA, 0x01, (const uint8_t*)payload, strlen(payload), 4);
+      ledFlash(LED_TX_BLINK);
     }
   }
+
+  ledUpdate();
 }
