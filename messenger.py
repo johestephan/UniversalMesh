@@ -1,21 +1,70 @@
+#!/usr/bin/env python3
 import requests
 import datetime
 import random
 import time
 
 # --- CONFIGURATION ---
-COORDINATOR_IP = "192.168.12.154"
+COORDINATOR_IP = "192.168.2.164"
 DESTINATION_MAC = "FF:FF:FF:FF:FF:FF" # Broadcast to all nodes
 APP_ID_TEXT = 1  # Tells the Gateway to decode as ASCII
 
 # Random message pool
 MESSAGES = [
+    # Status
     "System Nominal",
-    "Node Deep Sleep Test",
+    "All Systems Go",
     "Mesh Heartbeat",
+    "Network Stable",
+    "Amsterdam Lab Online",
+    "Uptime Check OK",
+    "Watchdog Reset",
+    "Low Power Mode Active",
+    "Clock Sync Complete",
+    "Boot Sequence Done",
+    # Nodes
+    "Node Deep Sleep Test",
+    "Node Wakeup Triggered",
+    "Node Battery Critical",
+    "Node Rejoined Mesh",
+    "Node Timeout: Retry",
+    "New Node Discovered",
+    "Orphan Node Detected",
+    "Relay Node Active",
+    "Edge Node Reporting",
+    "Node Pairing Request",
+    # Signal / RF
     "Signal Strength: High",
+    "Signal Strength: Low",
+    "RSSI Threshold Exceeded",
+    "Channel Noise Detected",
+    "Packet Loss > 5%",
+    "Link Quality: Stable",
+    "Retransmit Attempt 1",
+    "Interference Detected",
+    # Data / Sensor
     "Entropy update: 0x42",
-    "Amsterdam Lab Online"
+    "Sensor Read OK",
+    "Temp: 21.4 C",
+    "Humidity: 58%",
+    "Pressure: 1013 hPa",
+    "Motion Detected",
+    "Door Event: Open",
+    "Door Event: Closed",
+    "Light Level: 320 lux",
+    "CO2: 842 ppm",
+    "Air Quality: Good",
+    # Mesh ops
+    "Routing Table Updated",
+    "Broadcast Flood Limit Hit",
+    "TTL Expired: Drop",
+    "ACK Received",
+    "ACK Timeout",
+    "Mesh Rebalancing",
+    "Gateway Sync Request",
+    "OTA Check: No Update",
+    "Config Push Received",
+    "Mesh Partition Healed",
 ]
 
 def send_mesh_update():
