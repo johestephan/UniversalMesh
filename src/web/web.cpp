@@ -3,7 +3,11 @@
 #include <WiFi.h>
 
 // --- Packet ring buffer ---
-#define LOG_SIZE 10
+#ifdef BOARD_HAS_PSRAM
+  #define LOG_SIZE 200
+#else
+  #define LOG_SIZE 10
+#endif
 
 struct PacketLog {
   uint8_t       type;
@@ -13,7 +17,11 @@ struct PacketLog {
   unsigned long ts;
 };
 
-static PacketLog _log[LOG_SIZE];
+#ifdef BOARD_HAS_PSRAM
+  static EXT_RAM_BSS_ATTR PacketLog _log[LOG_SIZE];
+#else
+  static PacketLog _log[LOG_SIZE];
+#endif
 static int       _logHead  = 0;
 static int       _logCount = 0;
 
@@ -91,15 +99,56 @@ static const char HTML[] PROGMEM = R"rawliteral(
     </div>
   </div>
   <div class="card">
-    <h2>Live Packet Log</h2>
+    <h2>Live Packet Log <span id="log-pageinfo" style="float:right;font-size:0.8em;color:#484f58"></span></h2>
     <div id="log-empty" class="empty">No packets yet</div>
     <table id="log-table" style="display:none">
       <thead><tr><th>Type</th><th>From</th><th>App</th><th>Payload</th><th>Age</th></tr></thead>
       <tbody id="log-body"></tbody>
     </table>
-    <div class="sub" id="tick"></div>
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">
+      <div>
+        <button id="log-prev" onclick="logPage(-1)" style="font-family:monospace;font-size:0.75em;padding:2px 8px;border-radius:3px;border:1px solid #30363d;background:#21262d;color:#8b949e;cursor:pointer;margin-right:4px">&laquo; prev</button>
+        <button id="log-next" onclick="logPage(1)"  style="font-family:monospace;font-size:0.75em;padding:2px 8px;border-radius:3px;border:1px solid #30363d;background:#21262d;color:#8b949e;cursor:pointer">next &raquo;</button>
+      </div>
+      <div class="sub" id="tick"></div>
+    </div>
   </div>
   <script>
+    const PAGE_SIZE=10;
+    let logPage_=0;
+    let logPackets_=[];
+    function logPage(dir){
+      logPage_=Math.max(0,Math.min(logPage_+dir,Math.ceil(logPackets_.length/PAGE_SIZE)-1));
+      renderLog();
+    }
+    function renderLog(){
+      const lb=document.getElementById('log-body');
+      lb.innerHTML='';
+      if(!logPackets_.length){
+        document.getElementById('log-empty').style.display='';
+        document.getElementById('log-table').style.display='none';
+        document.getElementById('log-pageinfo').textContent='';
+        document.getElementById('log-prev').style.visibility='hidden';
+        document.getElementById('log-next').style.visibility='hidden';
+        return;
+      }
+      const total=Math.ceil(logPackets_.length/PAGE_SIZE);
+      const page=logPackets_.slice(logPage_*PAGE_SIZE,(logPage_+1)*PAGE_SIZE);
+      document.getElementById('log-empty').style.display='none';
+      document.getElementById('log-table').style.display='';
+      document.getElementById('log-pageinfo').textContent=(logPage_+1)+' / '+total;
+      document.getElementById('log-prev').style.visibility=logPage_>0?'visible':'hidden';
+      document.getElementById('log-next').style.visibility=logPage_<total-1?'visible':'hidden';
+      page.forEach(p=>{
+        lb.innerHTML+='<tr>'
+          +'<td><span class="tag">'+({0x12:'PING',0x13:'PONG',0x15:'DATA'}[p.type]||'0x'+p.type.toString(16).padStart(2,'0'))+'</span></td>'
+          +'<td>'+p.src+'</td>'
+          +'<td>0x'+p.appId.toString(16).padStart(2,'0')+'</td>'
+          +'<td>'+p.payload+'</td>'
+          +'<td>'+p.age_s+'s</td>'
+          +'</tr>';
+      });
+    }
     function pingAll(){
       const btn=document.getElementById('ping-all-btn');
       btn.textContent='...';btn.disabled=true;
@@ -150,24 +199,8 @@ static const char HTML[] PROGMEM = R"rawliteral(
           document.getElementById('nodes-table').style.display='none';
         }
 
-        const lb=document.getElementById('log-body');
-        lb.innerHTML='';
-        if(lg.packets&&lg.packets.length){
-          document.getElementById('log-empty').style.display='none';
-          document.getElementById('log-table').style.display='';
-          lg.packets.slice().reverse().forEach(p=>{
-            lb.innerHTML+='<tr>'
-              +'<td><span class="tag">'+({0x12:'PING',0x13:'PONG',0x15:'DATA'}[p.type]||'0x'+p.type.toString(16).padStart(2,'0'))+'</span></td>'
-              +'<td>'+p.src+'</td>'
-              +'<td>0x'+p.appId.toString(16).padStart(2,'0')+'</td>'
-              +'<td>'+p.payload+'</td>'
-              +'<td>'+p.age_s+'s</td>'
-              +'</tr>';
-          });
-        }else{
-          document.getElementById('log-empty').style.display='';
-          document.getElementById('log-table').style.display='none';
-        }
+        logPackets_=lg.packets?lg.packets.slice().reverse():[];
+        renderLog();
         set('tick','last update: '+new Date().toLocaleTimeString());
       }catch(e){}
     }
