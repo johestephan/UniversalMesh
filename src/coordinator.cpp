@@ -8,6 +8,7 @@
 #endif
 #include "secrets.h"
 #include "UniversalMesh.h"
+#include "web/web.h"
 
 // --- RGB LED ---
 #ifdef HAS_RGB_LED
@@ -132,6 +133,7 @@ void onMeshMessage(MeshPacket* packet, uint8_t* senderMac) {
 
   // 1. Immediately log the node in the routing table
   updateNodeTable(packet->srcMac);
+  logPacket(packet->type, senderMac, packet->appId, packet->payload, packet->payloadLen);
 
   // 2. Process the packet types
   if (packet->type == MESH_TYPE_PONG) {
@@ -288,6 +290,7 @@ void setup() {
     request->send(200, "application/json", response);
   });
 
+  initWebDashboard(server);
   server.begin();
   Serial.println("[SYSTEM] REST API Gateway Ready.");
 }
