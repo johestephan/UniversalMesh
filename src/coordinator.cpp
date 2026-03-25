@@ -12,8 +12,42 @@
 
 #ifdef LILYGO_T_ETH_ELITE
 #include <ETH.h>
+#include <Preferences.h>
+#include <esp_now.h>
 extern void setupETH();
+extern void loopETH();
 extern bool isEthConnected();
+extern bool isEthLinkUp();
+
+static Preferences _prefs;
+static uint8_t _meshChannel = 1;  // default
+
+static uint8_t loadMeshChannel() {
+  _prefs.begin("mesh", true);
+  uint8_t ch = _prefs.getUChar("channel", 1);
+  _prefs.end();
+  return (ch >= 1 && ch <= 13) ? ch : 1;
+}
+
+uint8_t getMeshChannel() { return _meshChannel; }
+
+void setMeshChannel(uint8_t ch) {
+  if (ch < 1 || ch > 13) return;
+  _meshChannel = ch;
+  // Persist
+  _prefs.begin("mesh", false);
+  _prefs.putUChar("channel", ch);
+  _prefs.end();
+  // Apply to radio
+  esp_wifi_set_channel(ch, WIFI_SECOND_CHAN_NONE);
+  // Update ESP-NOW broadcast peer
+  static const uint8_t broadcast[6] = {0xFF,0xFF,0xFF,0xFF,0xFF,0xFF};
+  esp_now_peer_info_t peer = {};
+  memcpy(peer.peer_addr, broadcast, 6);
+  peer.channel = ch;
+  esp_now_mod_peer(&peer);
+  Serial.printf("[MESH] Channel changed to %d\n", ch);
+}
 #endif
 
 // --- RGB LED ---
@@ -192,19 +226,34 @@ void setup() {
   // --- ETH Elite: Ethernet first, WiFi fallback ---
   setupETH();
 
-  Serial.print("[ETH] Waiting for link");
+  // Phase 1: wait up to 5s for a cable (link up)
+  Serial.print("[ETH] Waiting for cable");
   unsigned long ethStart = millis();
-  while (!isEthConnected() && (millis() - ethStart) < 10000) {
+  while (!isEthLinkUp() && (millis() - ethStart) < 5000) {
     delay(500);
     Serial.print(".");
   }
   Serial.println();
 
+  // Phase 2: cable detected — wait up to 20s for DHCP
+  if (isEthLinkUp()) {
+    Serial.print("[ETH] Cable detected, waiting for IP");
+    ethStart = millis();
+    while (!isEthConnected() && (millis() - ethStart) < 60000) {
+      delay(500);
+      Serial.print(".");
+    }
+    Serial.println();
+  }
+
   uint8_t chan;
   if (isEthConnected()) {
     Serial.printf("[ETH] Online! IP: %s\n", ETH.localIP().toString().c_str());
     esp_wifi_set_ps(WIFI_PS_NONE);
-    chan = 6;  // Fixed mesh channel — ETH provides upstream, no router channel to follow
+    _meshChannel = loadMeshChannel();
+    chan = _meshChannel;
+    Serial.printf("[MESH] Using channel %d (from NVS)\n", chan);
+    esp_wifi_set_channel(chan, WIFI_SECOND_CHAN_NONE);
   } else {
     Serial.println("[ETH] No link — falling back to WiFi...");
     WiFi.begin(WIFI_SSID, WIFI_PASS);
@@ -344,6 +393,9 @@ void setup() {
 }
 
 void loop() {
+#ifdef LILYGO_T_ETH_ELITE
+  loopETH();
+#endif
   mesh.update();
 
   // Temporary USB Serial Bypass for testing

@@ -1,14 +1,17 @@
 #include "web.h"
 #include <Arduino.h>
 #include <WiFi.h>
+#include <ArduinoJson.h>
 
 #ifdef LILYGO_T_ETH_ELITE
-extern bool   isEthConnected();
-extern String getEthLocalIP();
-extern String getEthMAC();
-extern String getEthGateway();
-extern int    getEthLinkSpeed();
-extern bool   isEthFullDuplex();
+extern bool    isEthConnected();
+extern String  getEthLocalIP();
+extern String  getEthMAC();
+extern String  getEthGateway();
+extern int     getEthLinkSpeed();
+extern bool    isEthFullDuplex();
+extern uint8_t getMeshChannel();
+extern void    setMeshChannel(uint8_t);
 #endif
 
 // --- Packet ring buffer ---
@@ -102,13 +105,29 @@ static const char HTML[] PROGMEM = R"rawliteral(
       <div class="row"><span class="lbl">MAC</span><span class="val" id="esp-mac">-</span></div>
       <div class="row"><span class="lbl">Uptime</span><span class="val" id="uptime">-</span></div>
     </div>
-    <div class="card">
+    <div class="card" id="wifi-card">
       <h2>WiFi</h2>
       <div class="row"><span class="lbl">SSID</span><span class="val" id="ssid">-</span></div>
       <div class="row"><span class="lbl">IP</span><span class="val" id="ip">-</span></div>
       <div class="row"><span class="lbl">Gateway</span><span class="val" id="gw">-</span></div>
       <div class="row"><span class="lbl">RSSI</span><span class="val" id="rssi">-</span></div>
       <div class="row"><span class="lbl">Channel</span><span class="val" id="ch">-</span></div>
+    </div>
+    <div class="card" id="mesh-card" style="display:none">
+      <h2>Mesh</h2>
+      <div class="row"><span class="lbl">Channel</span>
+        <span class="val">
+          <select id="mesh-ch-sel" style="font-family:monospace;font-size:0.83em;background:#21262d;color:#e6edf3;border:1px solid #30363d;border-radius:3px;padding:2px 4px">
+            <option value="1">1</option><option value="2">2</option><option value="3">3</option>
+            <option value="4">4</option><option value="5">5</option><option value="6">6</option>
+            <option value="7">7</option><option value="8">8</option><option value="9">9</option>
+            <option value="10">10</option><option value="11">11</option><option value="12">12</option>
+            <option value="13">13</option>
+          </select>
+          <button onclick="saveMeshCh(false)" style="font-family:monospace;font-size:0.75em;padding:2px 8px;border-radius:3px;border:1px solid #30363d;background:#21262d;color:#8b949e;cursor:pointer;margin-left:6px" id="mesh-ch-btn">save</button>
+          <button onclick="saveMeshCh(true)" style="font-family:monospace;font-size:0.75em;padding:2px 8px;border-radius:3px;border:1px solid #30363d;background:#21262d;color:#f85149;cursor:pointer;margin-left:4px" id="mesh-ch-reboot-btn">save &amp; reboot</button>
+        </span>
+      </div>
     </div>
     <div class="card" id="eth-card" style="display:none">
       <h2>&#x1F5A7; Ethernet</h2>
@@ -221,6 +240,8 @@ static const char HTML[] PROGMEM = R"rawliteral(
         set('rssi',     st.rssi+' dBm');
         set('ch',       st.channel);
 
+        document.getElementById('wifi-card').style.display = st.wifi_connected ? '' : 'none';
+
         if(st.eth_present){
           document.getElementById('eth-card').style.display='';
           set('eth-status', st.eth_connected ? '🟢 Connected' : '🔴 Disconnected');
@@ -228,6 +249,9 @@ static const char HTML[] PROGMEM = R"rawliteral(
           set('eth-gw',     st.eth_gateway);
           set('eth-mac',    st.eth_mac);
           set('eth-speed',  st.eth_connected ? st.eth_speed_mbps+'Mbps '+(st.eth_full_duplex?'Full':'Half')+'-Duplex' : '-');
+          document.getElementById('mesh-card').style.display='';
+          const sel=document.getElementById('mesh-ch-sel');
+          if(sel && st.mesh_channel && !meshChDirty) sel.value=st.mesh_channel;
         }
 
         const nb=document.getElementById('nodes-body');
@@ -250,6 +274,19 @@ static const char HTML[] PROGMEM = R"rawliteral(
         renderLog();
         set('tick','last update: '+new Date().toLocaleTimeString());
       }catch(e){}
+    }
+    let meshChDirty=false;
+    document.addEventListener('change',e=>{if(e.target.id==='mesh-ch-sel') meshChDirty=true;});
+    async function saveMeshCh(reboot){
+      const ch=parseInt(document.getElementById('mesh-ch-sel').value);
+      const btn=reboot?document.getElementById('mesh-ch-reboot-btn'):document.getElementById('mesh-ch-btn');
+      btn.textContent='...';btn.disabled=true;
+      try{
+        await fetch('/api/mesh/channel',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({channel:ch,reboot:reboot})});
+        btn.textContent=reboot?'rebooting…':'saved!';
+        meshChDirty=false;
+      }catch(e){btn.textContent='error';}
+      if(!reboot) setTimeout(()=>{btn.textContent='save';btn.disabled=false;},2000);
     }
     refresh();
     setInterval(refresh,3000);
@@ -276,6 +313,7 @@ void initWebDashboard(AsyncWebServer& server) {
     json += "\"ssid\":\""       + WiFi.SSID()                       + "\",";
     json += "\"ip\":\""         + WiFi.localIP().toString()         + "\",";
     json += "\"gateway\":\""    + WiFi.gatewayIP().toString()       + "\",";
+    json += "\"wifi_connected\":" + String(WiFi.status() == WL_CONNECTED ? "true" : "false") + ",";
     json += "\"rssi\":"         + String(WiFi.RSSI())               + ",";
     json += "\"channel\":"      + String(WiFi.channel())            + ",";
 #ifdef LILYGO_T_ETH_ELITE
@@ -286,13 +324,30 @@ void initWebDashboard(AsyncWebServer& server) {
     json += "\"eth_mac\":\""        + getEthMAC()                           + "\",";
     json += "\"eth_gateway\":\""    + (ethOk ? getEthGateway() : "")        + "\",";
     json += "\"eth_speed_mbps\":"   + String(ethOk ? getEthLinkSpeed() : 0) + ",";
-    json += "\"eth_full_duplex\":"  + String(ethOk && isEthFullDuplex() ? "true" : "false");
+    json += "\"eth_full_duplex\":"  + String(ethOk && isEthFullDuplex() ? "true" : "false") + ",";
+    json += "\"mesh_channel\":"     + String(getMeshChannel());
 #else
     json += "\"eth_present\":false";
 #endif
     json += "}";
     request->send(200, "application/json", json);
   });
+
+#ifdef LILYGO_T_ETH_ELITE
+  server.on("/api/mesh/channel", HTTP_POST,
+    [](AsyncWebServerRequest* request) {},
+    nullptr,
+    [](AsyncWebServerRequest* request, uint8_t* data, size_t len, size_t, size_t) {
+      JsonDocument doc;
+      deserializeJson(doc, data, len);
+      uint8_t ch = doc["channel"] | 1;
+      bool reboot = doc["reboot"] | false;
+      setMeshChannel(ch);
+      request->send(200, "application/json", "{\"channel\":" + String(ch) + ",\"reboot\":" + String(reboot?"true":"false") + "}");
+      if (reboot) { delay(200); ESP.restart(); }
+    }
+  );
+#endif
 
   server.on("/api/log", HTTP_GET, [](AsyncWebServerRequest* request) {
     String json = "{\"packets\":[";
