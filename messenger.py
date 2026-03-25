@@ -6,7 +6,7 @@ import time
 import argparse
 
 # --- CONFIGURATION ---
-COORDINATOR_IP = "192.168.2.124"
+COORDINATOR_IP = "192.168.2.204"
 DESTINATION_MAC = "FF:FF:FF:FF:FF:FF" # Broadcast to all nodes
 APP_ID_TEXT = 1  # Tells the Gateway to decode as ASCII
 

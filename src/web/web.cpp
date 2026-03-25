@@ -54,45 +54,66 @@ void logPacket(uint8_t type, uint8_t* srcMac, uint8_t appId, const uint8_t* payl
 // --- Dashboard HTML (stored in flash) ---
 static const char HTML[] PROGMEM = R"rawliteral(
 <!DOCTYPE html>
-<html>
+<html data-theme="dark">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>UniversalMesh</title>
   <style>
     *{box-sizing:border-box;margin:0;padding:0}
-    body{font-family:monospace;background:#0d1117;color:#c9d1d9;padding:16px;transition:background .2s,color .2s}
-    h1{color:#58a6ff;margin-bottom:16px;font-size:1.3em;display:flex;align-items:center;gap:10px}
-    h2{color:#8b949e;font-size:0.78em;text-transform:uppercase;letter-spacing:.1em;margin-bottom:10px}
-    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));gap:12px;margin-bottom:12px}
-    .card{background:#161b22;border:1px solid #30363d;border-radius:6px;padding:14px;transition:background .2s,border-color .2s}
-    .row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid #21262d;font-size:0.83em}
+    :root{
+      --bg:#f6f8fa;--container-bg:#ffffff;--text:#24292f;--muted:#57606a;
+      --border:#d0d7de;--card-bg:#ffffff;--row-border:#d0d7de;
+      --sub:#8c959f;--empty:#8c959f;--tag-bg:#0969da;--tag:#fff;
+      --btn-bg:#f6f8fa;--btn-border:#d0d7de;--btn-color:#57606a;
+      --sel-bg:#fff;--sel-color:#24292f;--sel-border:#d0d7de;
+      --th:#57606a;--th-border:#d0d7de;--td:#24292f;--td-border:#eaeef2;
+      --dot-green:#1a7f37;--h1:#0969da;--h2:#57606a;
+    }
+    [data-theme=dark]{
+      --bg:#0d1117;--container-bg:#161b22;--text:#c9d1d9;--muted:#8b949e;
+      --border:#30363d;--card-bg:#161b22;--row-border:#21262d;
+      --sub:#484f58;--empty:#484f58;--tag-bg:#1f6feb;--tag:#e6edf3;
+      --btn-bg:#21262d;--btn-border:#30363d;--btn-color:#8b949e;
+      --sel-bg:#21262d;--sel-color:#e6edf3;--sel-border:#30363d;
+      --th:#8b949e;--th-border:#30363d;--td:#e6edf3;--td-border:#21262d;
+      --dot-green:#3fb950;--h1:#58a6ff;--h2:#8b949e;
+    }
+    body{font-family:monospace;background:var(--bg);color:var(--text);transition:background .2s,color .2s}
+    .container{max-width:1000px;margin:20px auto;padding:0 16px}
+    h1{color:var(--h1);margin-bottom:16px;font-size:1.3em;display:flex;align-items:center;gap:10px}
+    h2{color:var(--h2);font-size:0.78em;text-transform:uppercase;letter-spacing:.1em;margin-bottom:10px}
+    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:15px;margin-bottom:15px}
+    .card{background:var(--card-bg);border:1px solid var(--border);border-radius:6px;padding:14px}
+    .row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--row-border);font-size:0.83em}
     .row:last-child{border-bottom:none}
-    .lbl{color:#8b949e}
-    .val{color:#e6edf3;text-align:right}
+    .lbl{color:var(--muted)}
+    .val{color:var(--text);text-align:right}
     table{width:100%;border-collapse:collapse;font-size:0.8em}
-    th{color:#8b949e;text-align:left;padding:5px 4px;border-bottom:1px solid #30363d;font-weight:normal}
-    td{padding:5px 4px;border-bottom:1px solid #21262d;color:#e6edf3;word-break:break-all}
+    th{color:var(--th);text-align:left;padding:5px 4px;border-bottom:1px solid var(--th-border);font-weight:normal}
+    td{padding:5px 4px;border-bottom:1px solid var(--td-border);color:var(--td);word-break:break-all}
     tr:last-child td{border-bottom:none}
-    .tag{font-size:0.75em;padding:1px 7px;border-radius:3px;background:#1f6feb;color:#e6edf3}
-    .dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:#3fb950;margin-right:6px}
-    .sub{color:#484f58;font-size:0.78em;margin-top:6px}
-    .empty{color:#484f58;font-size:0.82em;padding:8px 0}
-    .theme-btn{margin-left:auto;background:none;border:1px solid #30363d;border-radius:6px;padding:4px 8px;cursor:pointer;font-size:1em;line-height:1}
-    body.light{background:#f6f8fa;color:#24292f}
-    body.light .card{background:#ffffff;border-color:#d0d7de}
-    body.light .row{border-bottom-color:#d0d7de}
-    body.light .lbl{color:#57606a}
-    body.light .val{color:#24292f}
-    body.light th{color:#57606a;border-bottom-color:#d0d7de}
-    body.light td{color:#24292f;border-bottom-color:#eaeef2}
-    body.light h2{color:#57606a}
-    body.light .sub{color:#8c959f}
-    body.light .empty{color:#8c959f}
-    body.light .theme-btn{border-color:#d0d7de}
+    .tag{font-size:0.75em;padding:1px 7px;border-radius:3px;background:var(--tag-bg);color:var(--tag)}
+    .dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--dot-green);margin-right:6px}
+    .sub{color:var(--sub);font-size:0.78em;margin-top:6px}
+    .empty{color:var(--empty);font-size:0.82em;padding:8px 0}
+    .theme-btn{margin-left:auto;background:none;border:1px solid var(--border);border-radius:6px;padding:4px 8px;cursor:pointer;font-size:1em;line-height:1}
+    .btn{font-family:monospace;font-size:0.75em;padding:2px 8px;border-radius:3px;border:1px solid var(--btn-border);background:var(--btn-bg);color:var(--btn-color);cursor:pointer}
+    .btn-red{color:#f85149}
+    .sel{font-family:monospace;font-size:0.83em;background:var(--sel-bg);color:var(--sel-color);border:1px solid var(--sel-border);border-radius:3px;padding:2px 4px}
+    @media screen and (max-width:600px){
+      .grid{grid-template-columns:1fr}
+    }
   </style>
+  <script>
+    (function(){
+      var t=localStorage.getItem('theme')||'dark';
+      document.documentElement.setAttribute('data-theme',t);
+    })();
+  </script>
 </head>
 <body>
+  <div class="container">
   <h1><span class="dot"></span>UniversalMesh Coordinator<button class="theme-btn" onclick="toggleTheme()" id="theme-btn" title="Toggle dark/light mode">🌙</button></h1>
   <div class="grid">
     <div class="card">
@@ -113,22 +134,6 @@ static const char HTML[] PROGMEM = R"rawliteral(
       <div class="row"><span class="lbl">RSSI</span><span class="val" id="rssi">-</span></div>
       <div class="row"><span class="lbl">Channel</span><span class="val" id="ch">-</span></div>
     </div>
-    <div class="card" id="mesh-card" style="display:none">
-      <h2>Mesh</h2>
-      <div class="row"><span class="lbl">Channel</span>
-        <span class="val">
-          <select id="mesh-ch-sel" style="font-family:monospace;font-size:0.83em;background:#21262d;color:#e6edf3;border:1px solid #30363d;border-radius:3px;padding:2px 4px">
-            <option value="1">1</option><option value="2">2</option><option value="3">3</option>
-            <option value="4">4</option><option value="5">5</option><option value="6">6</option>
-            <option value="7">7</option><option value="8">8</option><option value="9">9</option>
-            <option value="10">10</option><option value="11">11</option><option value="12">12</option>
-            <option value="13">13</option>
-          </select>
-          <button onclick="saveMeshCh(false)" style="font-family:monospace;font-size:0.75em;padding:2px 8px;border-radius:3px;border:1px solid #30363d;background:#21262d;color:#8b949e;cursor:pointer;margin-left:6px" id="mesh-ch-btn">save</button>
-          <button onclick="saveMeshCh(true)" style="font-family:monospace;font-size:0.75em;padding:2px 8px;border-radius:3px;border:1px solid #30363d;background:#21262d;color:#f85149;cursor:pointer;margin-left:4px" id="mesh-ch-reboot-btn">save &amp; reboot</button>
-        </span>
-      </div>
-    </div>
     <div class="card" id="eth-card" style="display:none">
       <h2>&#x1F5A7; Ethernet</h2>
       <div class="row"><span class="lbl">Status</span><span class="val" id="eth-status">-</span></div>
@@ -138,16 +143,32 @@ static const char HTML[] PROGMEM = R"rawliteral(
       <div class="row"><span class="lbl">Speed</span><span class="val" id="eth-speed">-</span></div>
     </div>
     <div class="card">
-      <h2>Mesh Nodes <button id="ping-all-btn" onclick="pingAll()" style="font-family:monospace;font-size:0.75em;padding:2px 8px;border-radius:3px;border:1px solid #30363d;background:#21262d;color:#8b949e;cursor:pointer;float:right">ping all</button></h2>
+      <h2>Mesh Nodes <button id="ping-all-btn" onclick="pingAll()" class="btn" style="float:right">ping all</button></h2>
       <div id="nodes-empty" class="empty">No nodes discovered yet</div>
       <table id="nodes-table" style="display:none">
         <thead><tr><th>MAC</th><th>Last Seen</th></tr></thead>
         <tbody id="nodes-body"></tbody>
       </table>
     </div>
+    <div class="card" id="mesh-card" style="display:none">
+      <h2>Mesh</h2>
+      <div class="row"><span class="lbl">Channel</span>
+        <span class="val">
+          <select id="mesh-ch-sel" class="sel">
+            <option value="1">1</option><option value="2">2</option><option value="3">3</option>
+            <option value="4">4</option><option value="5">5</option><option value="6">6</option>
+            <option value="7">7</option><option value="8">8</option><option value="9">9</option>
+            <option value="10">10</option><option value="11">11</option><option value="12">12</option>
+            <option value="13">13</option>
+          </select>
+          <button onclick="saveMeshCh(false)" class="btn" style="margin-left:6px" id="mesh-ch-btn">save</button>
+          <button onclick="saveMeshCh(true)" class="btn btn-red" style="margin-left:4px" id="mesh-ch-reboot-btn">save &amp; reboot</button>
+        </span>
+      </div>
+    </div>
   </div>
   <div class="card">
-    <h2>Live Packet Log <span id="log-pageinfo" style="float:right;font-size:0.8em;color:#484f58"></span></h2>
+    <h2>Live Packet Log <span id="log-pageinfo" style="float:right;font-size:0.8em;color:var(--sub)"></span></h2>
     <div id="log-empty" class="empty">No packets yet</div>
     <table id="log-table" style="display:none">
       <thead><tr><th>Type</th><th>From</th><th>App</th><th>Payload</th><th>Age</th></tr></thead>
@@ -155,22 +176,25 @@ static const char HTML[] PROGMEM = R"rawliteral(
     </table>
     <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">
       <div>
-        <button id="log-prev" onclick="logPage(-1)" style="font-family:monospace;font-size:0.75em;padding:2px 8px;border-radius:3px;border:1px solid #30363d;background:#21262d;color:#8b949e;cursor:pointer;margin-right:4px">&laquo; prev</button>
-        <button id="log-next" onclick="logPage(1)"  style="font-family:monospace;font-size:0.75em;padding:2px 8px;border-radius:3px;border:1px solid #30363d;background:#21262d;color:#8b949e;cursor:pointer">next &raquo;</button>
+        <button id="log-prev" onclick="logPage(-1)" class="btn" style="margin-right:4px">&laquo; prev</button>
+        <button id="log-next" onclick="logPage(1)"  class="btn">next &raquo;</button>
       </div>
       <div class="sub" id="tick"></div>
     </div>
   </div>
+  </div>
   <script>
     function toggleTheme(){
-      const light=document.body.classList.toggle('light');
-      document.getElementById('theme-btn').textContent=light?'☀️':'🌙';
-      localStorage.setItem('theme',light?'light':'dark');
+      const isDark=document.documentElement.getAttribute('data-theme')==='dark';
+      const next=isDark?'light':'dark';
+      document.documentElement.setAttribute('data-theme',next);
+      document.getElementById('theme-btn').textContent=isDark?'☀️':'🌙';
+      localStorage.setItem('theme',next);
     }
-    if(localStorage.getItem('theme')==='light'){
-      document.body.classList.add('light');
-      document.getElementById('theme-btn').textContent='☀️';
-    }
+    (function(){
+      const t=localStorage.getItem('theme')||'dark';
+      document.getElementById('theme-btn').textContent=t==='dark'?'🌙':'☀️';
+    })();
     const PAGE_SIZE=10;
     let logPage_=0;
     let logPackets_=[];
