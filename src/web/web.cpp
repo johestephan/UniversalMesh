@@ -2,6 +2,15 @@
 #include <Arduino.h>
 #include <WiFi.h>
 
+#ifdef LILYGO_T_ETH_ELITE
+extern bool   isEthConnected();
+extern String getEthLocalIP();
+extern String getEthMAC();
+extern String getEthGateway();
+extern int    getEthLinkSpeed();
+extern bool   isEthFullDuplex();
+#endif
+
 // --- Packet ring buffer ---
 #ifdef BOARD_HAS_PSRAM
   #define LOG_SIZE 200
@@ -100,6 +109,14 @@ static const char HTML[] PROGMEM = R"rawliteral(
       <div class="row"><span class="lbl">Gateway</span><span class="val" id="gw">-</span></div>
       <div class="row"><span class="lbl">RSSI</span><span class="val" id="rssi">-</span></div>
       <div class="row"><span class="lbl">Channel</span><span class="val" id="ch">-</span></div>
+    </div>
+    <div class="card" id="eth-card" style="display:none">
+      <h2>&#x1F5A7; Ethernet</h2>
+      <div class="row"><span class="lbl">Status</span><span class="val" id="eth-status">-</span></div>
+      <div class="row"><span class="lbl">IP</span><span class="val" id="eth-ip">-</span></div>
+      <div class="row"><span class="lbl">Gateway</span><span class="val" id="eth-gw">-</span></div>
+      <div class="row"><span class="lbl">MAC</span><span class="val" id="eth-mac">-</span></div>
+      <div class="row"><span class="lbl">Speed</span><span class="val" id="eth-speed">-</span></div>
     </div>
     <div class="card">
       <h2>Mesh Nodes <button id="ping-all-btn" onclick="pingAll()" style="font-family:monospace;font-size:0.75em;padding:2px 8px;border-radius:3px;border:1px solid #30363d;background:#21262d;color:#8b949e;cursor:pointer;float:right">ping all</button></h2>
@@ -204,6 +221,15 @@ static const char HTML[] PROGMEM = R"rawliteral(
         set('rssi',     st.rssi+' dBm');
         set('ch',       st.channel);
 
+        if(st.eth_present){
+          document.getElementById('eth-card').style.display='';
+          set('eth-status', st.eth_connected ? '🟢 Connected' : '🔴 Disconnected');
+          set('eth-ip',     st.eth_ip);
+          set('eth-gw',     st.eth_gateway);
+          set('eth-mac',    st.eth_mac);
+          set('eth-speed',  st.eth_connected ? st.eth_speed_mbps+'Mbps '+(st.eth_full_duplex?'Full':'Half')+'-Duplex' : '-');
+        }
+
         const nb=document.getElementById('nodes-body');
         nb.innerHTML='';
         if(nd.nodes&&nd.nodes.length){
@@ -251,7 +277,19 @@ void initWebDashboard(AsyncWebServer& server) {
     json += "\"ip\":\""         + WiFi.localIP().toString()         + "\",";
     json += "\"gateway\":\""    + WiFi.gatewayIP().toString()       + "\",";
     json += "\"rssi\":"         + String(WiFi.RSSI())               + ",";
-    json += "\"channel\":"      + String(WiFi.channel());
+    json += "\"channel\":"      + String(WiFi.channel())            + ",";
+#ifdef LILYGO_T_ETH_ELITE
+    bool ethOk = isEthConnected();
+    json += "\"eth_present\":true,";
+    json += "\"eth_connected\":"    + String(ethOk ? "true" : "false")      + ",";
+    json += "\"eth_ip\":\""         + (ethOk ? getEthLocalIP() : "")        + "\",";
+    json += "\"eth_mac\":\""        + getEthMAC()                           + "\",";
+    json += "\"eth_gateway\":\""    + (ethOk ? getEthGateway() : "")        + "\",";
+    json += "\"eth_speed_mbps\":"   + String(ethOk ? getEthLinkSpeed() : 0) + ",";
+    json += "\"eth_full_duplex\":"  + String(ethOk && isEthFullDuplex() ? "true" : "false");
+#else
+    json += "\"eth_present\":false";
+#endif
     json += "}";
     request->send(200, "application/json", json);
   });

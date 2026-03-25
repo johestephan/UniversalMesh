@@ -10,6 +10,12 @@
 #include "UniversalMesh.h"
 #include "web/web.h"
 
+#ifdef LILYGO_T_ETH_ELITE
+#include <ETH.h>
+extern void setupETH();
+extern bool isEthConnected();
+#endif
+
 // --- RGB LED ---
 #ifdef HAS_RGB_LED
 constexpr uint8_t LED_PIN  = 8;
@@ -180,8 +186,48 @@ void setup() {
 
   Serial.println("\n=== MESH MASTER BRIDGE INITIALIZING ===");
 
-  // 1. Connect to Home Wi-Fi
   WiFi.mode(WIFI_STA);
+
+#ifdef LILYGO_T_ETH_ELITE
+  // --- ETH Elite: Ethernet first, WiFi fallback ---
+  setupETH();
+
+  Serial.print("[ETH] Waiting for link");
+  unsigned long ethStart = millis();
+  while (!isEthConnected() && (millis() - ethStart) < 10000) {
+    delay(500);
+    Serial.print(".");
+  }
+  Serial.println();
+
+  uint8_t chan;
+  if (isEthConnected()) {
+    Serial.printf("[ETH] Online! IP: %s\n", ETH.localIP().toString().c_str());
+    esp_wifi_set_ps(WIFI_PS_NONE);
+    chan = 6;  // Fixed mesh channel — ETH provides upstream, no router channel to follow
+  } else {
+    Serial.println("[ETH] No link — falling back to WiFi...");
+    WiFi.begin(WIFI_SSID, WIFI_PASS);
+
+    constexpr unsigned long WIFI_TIMEOUT_MS = 15000;
+    unsigned long wifiStart = millis();
+    while (WiFi.status() != WL_CONNECTED && (millis() - wifiStart) < WIFI_TIMEOUT_MS) {
+      delay(300);
+      Serial.print(".");
+    }
+    Serial.println();
+
+    if (WiFi.status() == WL_CONNECTED) {
+      esp_wifi_set_ps(WIFI_PS_NONE);
+      Serial.printf("[WIFI] Connected! IP: %s\n", WiFi.localIP().toString().c_str());
+    } else {
+      Serial.println("[WIFI] Connection failed! Running offline.");
+    }
+    chan = (WiFi.status() == WL_CONNECTED) ? WiFi.channel() : 6;
+  }
+
+#else
+  // --- Standard build: WiFi only ---
   WiFi.begin(WIFI_SSID, WIFI_PASS);
   Serial.printf("[WIFI] Connecting to %s\n", WIFI_SSID);
 
@@ -191,6 +237,8 @@ void setup() {
 #ifdef HAS_RGB_LED
     setColor(COLOR_GREEN); delay(300);
     setColor(COLOR_OFF);   delay(300);
+#else
+    delay(300);
 #endif
     Serial.print(".");
   }
@@ -201,9 +249,8 @@ void setup() {
     ledState = LED_CONNECTED;
     setColor(COLOR_GREEN);
 #endif
-    uint8_t chan = WiFi.channel();
-    Serial.printf("\n[WIFI] Connected! API IP: %s\n", WiFi.localIP().toString().c_str());
-    Serial.printf("[WIFI] Operating Channel: %d\n", chan);
+    Serial.printf("\n[WIFI] Connected! IP: %s\n", WiFi.localIP().toString().c_str());
+    Serial.printf("[WIFI] Channel: %d\n", WiFi.channel());
   } else {
 #ifdef HAS_RGB_LED
     ledState = LED_NO_WIFI;
@@ -213,6 +260,7 @@ void setup() {
   }
 
   uint8_t chan = (WiFi.status() == WL_CONNECTED) ? WiFi.channel() : 6;
+#endif  // LILYGO_T_ETH_ELITE
 
   // 2. Initialize Universal Mesh on the Router's Channel
   if (mesh.begin(chan)) {
