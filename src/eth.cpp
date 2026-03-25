@@ -5,9 +5,14 @@
 #include <ETH.h>
 #include <WiFi.h>       // WiFi.onEvent() is the correct bus for ETH events
 #include <ArduinoOTA.h>
+#include <ESPmDNS.h>
 
-#define OTA_HOSTNAME "universalmesh"
-#define OTA_PASSWORD "mesh1234"  // Change before deploying
+#ifndef MESH_HOSTNAME
+  #define MESH_HOSTNAME "universalmesh"
+#endif
+#ifndef OTA_PASSWORD
+  #define OTA_PASSWORD "mesh1234"
+#endif
 
 // LilyGo T-ETH Elite ESP32-S3 — W5500 SPI Ethernet pin assignments
 #define ETH_MISO_PIN   47
@@ -21,10 +26,11 @@
 static bool ethConnected = false;
 static bool ethLinkUp    = false;
 static bool otaStarted   = false;
+static bool mdnsStarted  = false;
 
 static void startOTA() {
     if (otaStarted) return;
-    ArduinoOTA.setHostname(OTA_HOSTNAME);
+    ArduinoOTA.setHostname(MESH_HOSTNAME);
     ArduinoOTA.setPassword(OTA_PASSWORD);
     ArduinoOTA.onStart([]() {
         Serial.println("[OTA] Starting update...");
@@ -45,7 +51,16 @@ static void startOTA() {
     });
     ArduinoOTA.begin();
     otaStarted = true;
-    Serial.printf("[OTA] Ready — hostname: %s\n", OTA_HOSTNAME);
+    Serial.printf("[OTA] Ready — hostname: %s\n", MESH_HOSTNAME);
+}
+
+static void startMDNS() {
+    if (mdnsStarted) return;
+    // ArduinoOTA.begin() already calls MDNS.begin() internally;
+    // we just add our extra service records here.
+    MDNS.addService("http", "tcp", 80);
+    mdnsStarted = true;
+    Serial.println("[mDNS] Started — universalmesh.local (http._tcp)");
 }
 
 bool   isEthConnected()  { return ethConnected; }
@@ -74,15 +89,18 @@ static void onEthEvent(arduino_event_id_t event) {
                 ETH.fullDuplex() ? "FULL_DUPLEX" : "HALF_DUPLEX");
             ethConnected = true;
             startOTA();
+            startMDNS();
             break;
         case ARDUINO_EVENT_ETH_LOST_IP:
             Serial.println("[ETH] Lost IP");
             ethConnected = false;
+            if (mdnsStarted) { MDNS.end(); mdnsStarted = false; }
             break;
         case ARDUINO_EVENT_ETH_DISCONNECTED:
             Serial.println("[ETH] Link Down");
             ethConnected = false;
             ethLinkUp    = false;
+            if (mdnsStarted) { MDNS.end(); mdnsStarted = false; }
             break;
         case ARDUINO_EVENT_ETH_STOP:
             Serial.println("[ETH] Stopped");

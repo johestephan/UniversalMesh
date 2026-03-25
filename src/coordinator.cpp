@@ -235,7 +235,7 @@ void setup() {
   }
   Serial.println();
 
-  // Phase 2: cable detected — wait up to 20s for DHCP
+  // Phase 2: cable detected — wait up to 60s for DHCP
   if (isEthLinkUp()) {
     Serial.print("[ETH] Cable detected, waiting for IP");
     ethStart = millis();
