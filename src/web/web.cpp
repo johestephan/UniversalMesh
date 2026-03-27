@@ -259,7 +259,7 @@ static const char HTML[] PROGMEM = R"rawliteral(
           +'<td><span class="tag">'+({0x12:'PING',0x13:'PONG',0x15:'DATA'}[p.type]||'0x'+p.type.toString(16).padStart(2,'0'))+'</span></td>'
           +'<td>'+p.src+'</td>'
           +'<td>0x'+p.appId.toString(16).padStart(2,'0')+'</td>'
-          +'<td>'+p.payload+'</td>'
+          +'<td>'+(p.appId===0x05?'[heartbeat]':p.payload)+'</td>'
           +'<td>'+p.age_s+'s</td>'
           +'</tr>';
       });
