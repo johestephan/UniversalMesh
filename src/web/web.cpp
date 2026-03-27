@@ -201,8 +201,9 @@ R"rawliteral(
   <div id="topo-panel" style="display:none;margin-top:15px">
     <div class="card">
       <h2>Mesh Topology</h2>
-      <canvas id="topo-canvas" width="700" height="340" style="width:100%;display:block;border-radius:4px;background:var(--bg)"></canvas>
-      <div style="margin-top:6px;font-size:0.8em;color:var(--sub)">Inferred from relay paths in packet log &mdash; blue = coordinator &middot; green = node &middot; edges show heard links</div>
+      <canvas id="topo-canvas" width="700" height="340" style="width:100%;display:block;border-radius:4px;background:var(--bg);cursor:pointer"></canvas>
+      <div id="topo-info" style="min-height:2.5em;margin-top:8px;padding:8px;border-radius:4px;background:var(--row-bg);font-size:0.88em;line-height:1.6"></div>
+      <div style="margin-top:4px;font-size:0.8em;color:var(--sub)">Inferred from relay paths in packet log &mdash; blue = coordinator &middot; green = node &middot; click a node for details</div>
     </div>
   </div>
   <div id="console-panel" style="display:none;margin-top:15px">
@@ -309,19 +310,58 @@ R"rawliteral(
     function set(id,v){document.getElementById(id).textContent=v}
 
     // --- Mesh topology force graph ---
-    let _topoRunning=false,_topoAnim=null,_topoNodes=[],_topoEdges=[],_topoMap=new Map();
+    let _topoRunning=false,_topoAnim=null,_topoNodes=[],_topoEdges=[],_topoMap=new Map(),_topoSel=null,_stCache={};
     function toggleTopology(){
       const p=document.getElementById('topo-panel');
       const show=p.style.display==='none';
       p.style.display=show?'':'none';
       document.getElementById('topo-btn').style.opacity=show?'1':'0.5';
-      if(show){ _topoNodes=[];_topoEdges=[];_topoMap=new Map(); mergeTopology(); fixCoord(); _topoRunning=true; topoTick(); }
-      else { _topoRunning=false; if(_topoAnim) cancelAnimationFrame(_topoAnim); }
+      if(show){
+        _topoNodes=[];_topoEdges=[];_topoMap=new Map();_topoSel=null;
+        mergeTopology(); fixCoord(); _topoRunning=true; topoTick();
+        const cv=document.getElementById('topo-canvas');
+        cv.onclick=e=>{
+          const r=cv.getBoundingClientRect();
+          const mx=(e.clientX-r.left)*(cv.width/r.width);
+          const my=(e.clientY-r.top)*(cv.height/r.height);
+          let hit=null;
+          _topoNodes.forEach(n=>{ const rd=n.isCoord?15:10,dx=n.x-mx,dy=n.y-my; if(dx*dx+dy*dy<=(rd+5)*(rd+5)) hit=n; });
+          _topoSel=(hit===_topoSel)?null:hit;
+          renderTopoInfo();
+        };
+      } else { _topoRunning=false; if(_topoAnim) cancelAnimationFrame(_topoAnim); }
     }
     function fixCoord(){
       const cv=document.getElementById('topo-canvas');
       const c=_topoMap.get(coordMac_);
       if(c){c.x=cv.width/2;c.y=cv.height/2;c.fixed=true;}
+    }
+    function renderTopoInfo(){
+      const div=document.getElementById('topo-info');
+      if(!_topoSel){div.innerHTML='';return;}
+      const n=_topoSel;
+      let h='<strong style="color:'+(n.isCoord?'#58a6ff':'#3fb950')+'">'+n.name+'</strong>';
+      h+=' &nbsp;<span style="font-size:0.85em;color:var(--sub)">'+n.id+'</span><br>';
+      if(n.isCoord && _stCache.chip){
+        h+=_stCache.chip+' &middot; '+_stCache.cores+' cores &middot; '+_stCache.cpu_mhz+' MHz<br>';
+        h+='Heap: '+fmtBytes(_stCache.free_heap)+' &middot; Up: '+fmtUptime(_stCache.uptime_ms)+'<br>';
+        if(_stCache.ip) h+='IP: '+_stCache.ip+' &middot; SSID: '+(_stCache.ssid||'-');
+      } else {
+        const pkts=logPackets_.filter(p=>p.origSrc.toUpperCase()===n.id||p.src.toUpperCase()===n.id);
+        if(pkts.length){
+          h+='Last seen: '+pkts[0].age_s+'s ago<br>';
+          const data=pkts.filter(p=>p.appId===1&&p.payload&&p.origSrc.toUpperCase()===n.id);
+          if(data.length) h+='Last payload: <span style="color:var(--sub)">'+data[0].payload+'</span>';
+        } else { h+='No packets in log yet'; }
+      }
+      div.innerHTML=h;
+    }
+    function updateTopoLastSeen(nodes){
+      if(!nodes) return;
+      nodes.forEach(n=>{
+        const node=_topoMap.get(n.mac.toUpperCase());
+        if(node) node.lastSeen=n.last_seen_seconds_ago;
+      });
     }
     function mergeTopology(){
       const cv=document.getElementById('topo-canvas');
@@ -372,8 +412,12 @@ R"rawliteral(
       });
       ns.forEach(n=>{
         const r=n.isCoord?15:10;
+        if(n===_topoSel){
+          ctx.beginPath();ctx.arc(n.x,n.y,r+5,0,Math.PI*2);
+          ctx.strokeStyle='#f0c040';ctx.lineWidth=2.5;ctx.stroke();
+        }
         ctx.beginPath();ctx.arc(n.x,n.y,r,0,Math.PI*2);
-        ctx.fillStyle=n.isCoord?'#58a6ff':'#3fb950';
+        ctx.fillStyle=n.isCoord?'#58a6ff':(n.lastSeen>120?'#f85149':'#3fb950');
         ctx.fill(); ctx.strokeStyle=dark?'#1a1a2e':'#fff'; ctx.lineWidth=2; ctx.stroke();
         ctx.fillStyle=dark?'#e6edf3':'#1a1a2e'; ctx.font='bold 11px monospace'; ctx.textAlign='center';
         ctx.fillText(n.name,n.x,n.y+r+14);
@@ -434,6 +478,7 @@ R"rawliteral(
           document.getElementById('nodes-table').style.display='none';
         }
 
+        _stCache=st;
         coordMac_=st.esp_mac.toUpperCase();
         nodeNames_={};
         if(nd.nodes) nd.nodes.forEach(n=>{ if(n.name) nodeNames_[n.mac.toUpperCase()]=n.name; });
@@ -449,7 +494,7 @@ R"rawliteral(
         if([...destSel.options].some(o=>o.value===prevDest)) destSel.value=prevDest;
         logPackets_=lg.packets?lg.packets.slice().reverse():[];
         renderLog();
-        if(_topoRunning) mergeTopology();
+        if(_topoRunning){ mergeTopology(); updateTopoLastSeen(nd.nodes); renderTopoInfo(); }
         set('tick','last update: '+new Date().toLocaleTimeString());
       }catch(e){}
     }
