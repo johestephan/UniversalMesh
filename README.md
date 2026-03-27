@@ -232,8 +232,8 @@ pio run -e coordinator_eth_elite_ota -t upload
 | Temperature / humidity | Adafruit SHT31 Library | `sensor_wemos_d1` |
 | OLED display (ESP32) | U8g2 | `sensor_wemos_d1` |
 | OLED display (ESP8266) | Adafruit SSD1306 + GFX | `gateway_esp8266` |
-| Coordinator MCU | ESP32-C6 (RISC-V), ESP32-S3, LilyGo T-ETH Elite | Coordinator |
-| Sensor MCU | ESP32, ESP32-C6, ESP32-S3, ESP8266 | Sensor nodes |
+| Coordinator MCU | ESP32-C6, ESP32-S3, LilyGo T8-S3, LilyGo T-ETH Elite | Coordinator |
+| Sensor MCU | Generic ESP32, ESP32-C6, LilyGo T8-S3 (ESP32-S3), Wemos D1 (ESP8266) | Sensor nodes |
 
 ## License
 
