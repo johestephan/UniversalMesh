@@ -13,15 +13,32 @@
 #ifndef MESH_HOSTNAME
   #define MESH_HOSTNAME "universalmesh"
 #endif
+#ifndef MESH_NETWORK
+  #define MESH_NETWORK "mesh"
+#endif
 
 #ifdef LILYGO_T_ETH_ELITE
 #include <ETH.h>
 #include <Preferences.h>
 #include <esp_now.h>
+#include <PubSubClient.h>
 extern void setupETH();
 extern void loopETH();
 extern bool isEthConnected();
 extern bool isEthLinkUp();
+
+// --- MQTT client (ETH Elite only) ---
+static WiFiClient    _mqttNetClient;
+static PubSubClient  _mqtt(_mqttNetClient);
+static unsigned long _mqttLastAttempt = 0;
+constexpr unsigned long MQTT_RECONNECT_MS = 5000;
+
+// Publish queue — enqueued from ESP-NOW callback task, drained in loop()
+#define MQTT_QUEUE_SIZE 8
+struct MqttPub { char topic[96]; char payload[65]; };
+static MqttPub _mqttQueue[MQTT_QUEUE_SIZE];
+static int     _mqttQHead = 0;
+static int     _mqttQTail = 0;
 
 static Preferences _prefs;
 static uint8_t _meshChannel = 1;  // default
@@ -170,6 +187,73 @@ void updateNodeTable(uint8_t* mac) {
 }
 
 
+#ifdef LILYGO_T_ETH_ELITE
+// Called from onMeshMessage (ESP-NOW task) — no network I/O, just a memcpy into the queue.
+// Must be called with _dataMutex held so meshNodes[] is safe to read.
+static void mqttEnqueue(MeshPacket* packet) {
+  if (packet->type != MESH_TYPE_DATA) return;
+  if (packet->appId != 0x01 && packet->appId != 0x05 && packet->appId != 0x06) return;
+
+  int next = (_mqttQHead + 1) % MQTT_QUEUE_SIZE;
+  if (next == _mqttQTail) return; // queue full, drop
+
+  // Resolve node identifier: name if known, compact MAC otherwise
+  char nodeId[32] = {0};
+  for (int i = 0; i < MAX_NODES; i++) {
+    if (meshNodes[i].active && memcmp(meshNodes[i].mac, packet->srcMac, 6) == 0) {
+      if (meshNodes[i].name[0]) strncpy(nodeId, meshNodes[i].name, sizeof(nodeId) - 1);
+      break;
+    }
+  }
+  if (!nodeId[0]) {
+    snprintf(nodeId, sizeof(nodeId), "%02x%02x%02x%02x%02x%02x",
+             packet->srcMac[0], packet->srcMac[1], packet->srcMac[2],
+             packet->srcMac[3], packet->srcMac[4], packet->srcMac[5]);
+  }
+
+  MqttPub& msg = _mqttQueue[_mqttQHead];
+  snprintf(msg.topic, sizeof(msg.topic), "%s/%s/nodes/%s/%02x",
+           MESH_NETWORK, MESH_HOSTNAME, nodeId, packet->appId);
+  if (packet->appId == 0x05) {
+    strcpy(msg.payload, "1");
+  } else {
+    uint8_t len = packet->payloadLen < 64 ? packet->payloadLen : 64;
+    memcpy(msg.payload, packet->payload, len);
+    msg.payload[len] = '\0';
+  }
+  _mqttQHead = next;
+}
+
+// Called from loop() — safe context for network I/O.
+static void mqttDrain() {
+  lockMeshData();
+  int head = _mqttQHead;
+  unlockMeshData();
+  while (_mqttQTail != head) {
+    if (!_mqtt.publish(_mqttQueue[_mqttQTail].topic, _mqttQueue[_mqttQTail].payload)) break;
+    Serial.printf("[MQTT] %s → %s\n", _mqttQueue[_mqttQTail].topic, _mqttQueue[_mqttQTail].payload);
+    _mqttQTail = (_mqttQTail + 1) % MQTT_QUEUE_SIZE;
+  }
+}
+
+static void mqttConnect() {
+  if (!isEthConnected()) return;
+  if (_mqtt.connected()) return;
+  unsigned long now = millis();
+  if (now - _mqttLastAttempt < MQTT_RECONNECT_MS) return;
+  _mqttLastAttempt = now;
+  Serial.printf("[MQTT] Connecting to %s:%d...", MQTT_BROKER, MQTT_PORT);
+  String clientId = "mesh-" + String(MESH_HOSTNAME);
+  const char* user = strlen(MQTT_USER) ? MQTT_USER : nullptr;
+  const char* pass = strlen(MQTT_PASS) ? MQTT_PASS : nullptr;
+  if (_mqtt.connect(clientId.c_str(), user, pass)) {
+    Serial.println(" OK");
+  } else {
+    Serial.printf(" failed rc=%d\n", _mqtt.state());
+  }
+}
+#endif // LILYGO_T_ETH_ELITE
+
 AsyncWebServer server(80);
 UniversalMesh mesh;
 
@@ -221,6 +305,11 @@ void onMeshMessage(MeshPacket* packet, uint8_t* senderMac) {
     Serial.println(logMsg);
     addSerialLog(logMsg);
   }
+#ifdef LILYGO_T_ETH_ELITE
+  lockMeshData();
+  mqttEnqueue(packet);
+  unlockMeshData();
+#endif
 }
 
 void setup() {
@@ -293,6 +382,10 @@ void setup() {
     }
     chan = (WiFi.status() == WL_CONNECTED) ? WiFi.channel() : 6;
   }
+
+  // --- MQTT ---
+  _mqtt.setServer(MQTT_BROKER, MQTT_PORT);
+  mqttConnect();
 
 #else
   // --- Standard build: WiFi only ---
@@ -424,6 +517,9 @@ void setup() {
 void loop() {
 #ifdef LILYGO_T_ETH_ELITE
   loopETH();
+  mqttConnect();
+  _mqtt.loop();
+  mqttDrain();
 #endif
   mesh.update();
 

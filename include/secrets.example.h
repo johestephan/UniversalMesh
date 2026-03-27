@@ -6,4 +6,6 @@
 
 #define MQTT_BROKER "MQTT BROKER IP HERE" // Your Home Assistant or Mosquitto IP
 #define MQTT_PORT   1883
+#define MQTT_USER   ""             // Leave empty if no authentication
+#define MQTT_PASS   ""
 #endif
