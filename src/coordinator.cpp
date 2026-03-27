@@ -178,7 +178,7 @@ void onMeshMessage(MeshPacket* packet, uint8_t* senderMac) {
   // 1. Immediately log the node in the routing table (mutex protects meshNodes[] and _log[])
   lockMeshData();
   updateNodeTable(packet->srcMac);
-  logPacket(packet->type, senderMac, packet->appId, packet->payload, packet->payloadLen);
+  logPacket(packet->type, senderMac, packet->srcMac, packet->appId, packet->payload, packet->payloadLen);
   unlockMeshData();
 
   // 2. Process the packet types

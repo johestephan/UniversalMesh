@@ -25,6 +25,7 @@ extern void    setMeshChannel(uint8_t);
 struct PacketLog {
   uint8_t       type;
   char          src[18];
+  char          origSrc[18];
   uint8_t       appId;
   char          payload[65];
   unsigned long ts;
@@ -38,13 +39,15 @@ struct PacketLog {
 static int       _logHead  = 0;
 static int       _logCount = 0;
 
-void logPacket(uint8_t type, uint8_t* srcMac, uint8_t appId, const uint8_t* payload, uint8_t payloadLen) {
+void logPacket(uint8_t type, uint8_t* senderMac, uint8_t* origSrcMac, uint8_t appId, const uint8_t* payload, uint8_t payloadLen) {
   PacketLog& p = _log[_logHead];
   p.type  = type;
   p.appId = appId;
   p.ts    = millis();
   snprintf(p.src, sizeof(p.src), "%02X:%02X:%02X:%02X:%02X:%02X",
-           srcMac[0], srcMac[1], srcMac[2], srcMac[3], srcMac[4], srcMac[5]);
+           senderMac[0], senderMac[1], senderMac[2], senderMac[3], senderMac[4], senderMac[5]);
+  snprintf(p.origSrc, sizeof(p.origSrc), "%02X:%02X:%02X:%02X:%02X:%02X",
+           origSrcMac[0], origSrcMac[1], origSrcMac[2], origSrcMac[3], origSrcMac[4], origSrcMac[5]);
   uint8_t len = payloadLen < 64 ? payloadLen : 64;
   memcpy(p.payload, payload, len);
   p.payload[len] = '\0';
@@ -232,6 +235,7 @@ static const char HTML[] PROGMEM = R"rawliteral(
     const PAGE_SIZE=10;
     let logPage_=0;
     let logPackets_=[];
+    let coordMac_='';
     function logPage(dir){
       logPage_=Math.max(0,Math.min(logPage_+dir,Math.ceil(logPackets_.length/PAGE_SIZE)-1));
       renderLog();
@@ -259,7 +263,7 @@ static const char HTML[] PROGMEM = R"rawliteral(
           +'<td><span class="tag">'+({0x12:'PING',0x13:'PONG',0x15:'DATA'}[p.type]||'0x'+p.type.toString(16).padStart(2,'0'))+'</span></td>'
           +'<td>'+p.src+'</td>'
           +'<td>0x'+p.appId.toString(16).padStart(2,'0')+'</td>'
-          +'<td>'+(p.appId===0x05?'[heartbeat]':p.appId===0x00?({0x12:'[discovery ping]',0x13:'[discovery pong]'}[p.type]||'[discovery]'):p.payload)+'</td>'
+          +'<td>'+(p.appId===0x05?'[heartbeat]':p.appId===0x00?({0x12:'[discovery ping]',0x13:'[discovery pong]'}[p.type]||'[discovery]')+(p.origSrc!==p.src?' <span class="muted">from '+(p.origSrc.toUpperCase()===coordMac_?'[coordinator]':p.origSrc)+'</span>':''):p.payload)+'</td>'
           +'<td>'+p.age_s+'s</td>'
           +'</tr>';
       });
@@ -328,6 +332,7 @@ static const char HTML[] PROGMEM = R"rawliteral(
           document.getElementById('nodes-table').style.display='none';
         }
 
+        coordMac_=st.esp_mac.toUpperCase();
         logPackets_=lg.packets?lg.packets.slice().reverse():[];
         renderLog();
         set('tick','last update: '+new Date().toLocaleTimeString());
@@ -444,9 +449,10 @@ void initWebDashboard(AsyncWebServer& server) {
       const PacketLog& p = _log[(start + i) % LOG_SIZE];
       if (i > 0) json += ",";
       json += "{";
-      json += "\"type\":"  + String(p.type)  + ",";
-      json += "\"src\":\""  + String(p.src)  + "\",";
-      json += "\"appId\":" + String(p.appId) + ",";
+      json += "\"type\":"     + String(p.type)    + ",";
+      json += "\"src\":\""   + String(p.src)    + "\",";
+      json += "\"origSrc\":\"" + String(p.origSrc) + "\",";
+      json += "\"appId\":"  + String(p.appId)  + ",";
       // Escape payload — raw bytes (e.g. 0x01) must not appear unescaped in JSON
       json += "\"payload\":\"";
       for (const char* c = p.payload; *c; c++) {
