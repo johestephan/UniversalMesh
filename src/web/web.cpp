@@ -157,10 +157,12 @@ R"rawliteral(
   <div class="card">
     <h2>Live Packet Log <span id="log-pageinfo" style="float:right;font-size:0.8em;color:var(--sub)"></span></h2>
     <div id="log-empty" class="empty">No packets yet</div>
-    <table id="log-table" style="display:none">
+    <div style="overflow-x:auto">
+    <table id="log-table" style="display:none;min-width:480px">
       <thead><tr><th>Type</th><th>From</th><th>App</th><th>Payload</th><th>Age</th></tr></thead>
       <tbody id="log-body"></tbody>
     </table>
+    </div>
     <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">
       <div>
         <button id="log-prev" onclick="logPage(-1)" class="btn btn-secondary">&laquo; Prev</button>

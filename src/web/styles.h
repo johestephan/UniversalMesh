@@ -53,6 +53,7 @@
 "th{color:var(--muted);text-align:left;padding:8px 6px;border-bottom:2px solid var(--border);font-weight:bold;white-space:nowrap}" \
 "td{padding:8px 6px;border-bottom:1px solid var(--row-border);color:var(--text);word-break:break-all}" \
 "#nodes-table td{word-break:normal;white-space:nowrap}" \
+"#log-table td{word-break:normal;white-space:nowrap}" \
 "tr:last-child td{border-bottom:none}" \
 "tr:nth-child(even) td{background:rgba(0,0,0,0.06)}" \
 "tr.relayed td{background:rgba(30,100,255,0.10)!important}" \
