@@ -100,6 +100,7 @@ R"rawliteral(
   <nav class="navbar">
     <span class="nav-brand"><span class="dot"></span>&nbsp;UniversalMesh</span>
     <div class="nav-actions">
+      <button class="theme-btn" onclick="toggleTopology()" id="topo-btn" title="Toggle mesh topology map">&#x2B21;</button>
       <button class="theme-btn" onclick="toggleConsole()" id="console-btn" title="Toggle serial console">&gt;_</button>
       <button class="theme-btn" onclick="rebootDevice()" id="reboot-btn" title="Reboot coordinator" style="color:#dc3545">&#x21BA;</button>
       <button class="theme-btn" onclick="toggleTheme()" id="theme-btn" title="Toggle dark/light mode">&#x1F319;</button>
@@ -195,6 +196,13 @@ R"rawliteral(
         <button id="log-next" onclick="logPage(1)"  class="btn btn-secondary">Next &raquo;</button>
       </div>
       <div class="sub" id="tick"></div>
+    </div>
+  </div>
+  <div id="topo-panel" style="display:none;margin-top:15px">
+    <div class="card">
+      <h2>Mesh Topology</h2>
+      <canvas id="topo-canvas" width="700" height="340" style="width:100%;display:block;border-radius:4px;background:var(--bg)"></canvas>
+      <div style="margin-top:6px;font-size:0.8em;color:var(--sub)">Inferred from relay paths in packet log &mdash; blue = coordinator &middot; green = node &middot; edges show heard links</div>
     </div>
   </div>
   <div id="console-panel" style="display:none;margin-top:15px">
@@ -299,6 +307,80 @@ R"rawliteral(
     }
     function fmtBytes(b){return b>1048576?(b/1048576).toFixed(1)+' MB':b>1024?(b/1024).toFixed(1)+' KB':b+' B'}
     function set(id,v){document.getElementById(id).textContent=v}
+
+    // --- Mesh topology force graph ---
+    let _topoRunning=false,_topoAnim=null,_topoNodes=[],_topoEdges=[],_topoMap=new Map();
+    function toggleTopology(){
+      const p=document.getElementById('topo-panel');
+      const show=p.style.display==='none';
+      p.style.display=show?'':'none';
+      document.getElementById('topo-btn').style.opacity=show?'1':'0.5';
+      if(show){ _topoNodes=[];_topoEdges=[];_topoMap=new Map(); mergeTopology(); fixCoord(); _topoRunning=true; topoTick(); }
+      else { _topoRunning=false; if(_topoAnim) cancelAnimationFrame(_topoAnim); }
+    }
+    function fixCoord(){
+      const cv=document.getElementById('topo-canvas');
+      const c=_topoMap.get(coordMac_);
+      if(c){c.x=cv.width/2;c.y=cv.height/2;c.fixed=true;}
+    }
+    function mergeTopology(){
+      const cv=document.getElementById('topo-canvas');
+      const coord=coordMac_.toUpperCase();
+      const edgeSet=new Set(_topoEdges.map(e=>[e[0],e[1]].sort().join('~')));
+      const addNode=mac=>{
+        mac=mac.toUpperCase();
+        if(!_topoMap.has(mac)){
+          const n={id:mac,name:mac===coord?'coordinator':(nodeNames_[mac]||mac.slice(-5)),
+            isCoord:mac===coord,x:cv.width/2+(Math.random()-.5)*220,y:cv.height/2+(Math.random()-.5)*180,vx:0,vy:0};
+          _topoMap.set(mac,n); _topoNodes.push(n);
+        } else { const n=_topoMap.get(mac); if(nodeNames_[mac]) n.name=nodeNames_[mac]; }
+        return mac;
+      };
+      const addEdge=(a,b)=>{ const k=[a,b].sort().join('~'); if(!edgeSet.has(k)){edgeSet.add(k);_topoEdges.push([a,b]);} };
+      addNode(coord);
+      logPackets_.forEach(p=>{ const s=addNode(p.src),o=addNode(p.origSrc); addEdge(s,coord); if(s!==o) addEdge(o,s); });
+    }
+    function topoTick(){
+      if(!_topoRunning) return;
+      const cv=document.getElementById('topo-canvas');
+      const ctx=cv.getContext('2d');
+      const ns=_topoNodes, es=_topoEdges, nm=_topoMap;
+      ns.forEach(n=>{n.fx=0;n.fy=0;});
+      for(let i=0;i<ns.length;i++) for(let j=i+1;j<ns.length;j++){
+        const a=ns[i],b=ns[j],dx=b.x-a.x,dy=b.y-a.y,d2=dx*dx+dy*dy+1,d=Math.sqrt(d2),f=6000/d2;
+        a.fx-=f*dx/d;a.fy-=f*dy/d;b.fx+=f*dx/d;b.fy+=f*dy/d;
+      }
+      es.forEach(([ai,bi])=>{
+        const a=nm.get(ai),b=nm.get(bi); if(!a||!b) return;
+        const dx=b.x-a.x,dy=b.y-a.y,d=Math.sqrt(dx*dx+dy*dy)||1,f=0.06*(d-130);
+        a.fx+=f*dx/d;a.fy+=f*dy/d;b.fx-=f*dx/d;b.fy-=f*dy/d;
+      });
+      const cx=cv.width/2,cy=cv.height/2;
+      ns.forEach(n=>{n.fx+=(cx-n.x)*.006;n.fy+=(cy-n.y)*.006;});
+      ns.forEach(n=>{
+        if(n.fixed) return;
+        n.vx=(n.vx+n.fx)*.72; n.vy=(n.vy+n.fy)*.72;
+        n.x=Math.max(55,Math.min(cv.width-55,n.x+n.vx));
+        n.y=Math.max(22,Math.min(cv.height-22,n.y+n.vy));
+      });
+      const dark=document.documentElement.getAttribute('data-theme')==='dark';
+      ctx.clearRect(0,0,cv.width,cv.height);
+      ctx.strokeStyle=dark?'#3a3a5c':'#bbb'; ctx.lineWidth=1.5;
+      es.forEach(([ai,bi])=>{
+        const a=nm.get(ai),b=nm.get(bi); if(!a||!b) return;
+        ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();
+      });
+      ns.forEach(n=>{
+        const r=n.isCoord?15:10;
+        ctx.beginPath();ctx.arc(n.x,n.y,r,0,Math.PI*2);
+        ctx.fillStyle=n.isCoord?'#58a6ff':'#3fb950';
+        ctx.fill(); ctx.strokeStyle=dark?'#1a1a2e':'#fff'; ctx.lineWidth=2; ctx.stroke();
+        ctx.fillStyle=dark?'#e6edf3':'#1a1a2e'; ctx.font='bold 11px monospace'; ctx.textAlign='center';
+        ctx.fillText(n.name,n.x,n.y+r+14);
+      });
+      _topoAnim=requestAnimationFrame(topoTick);
+    }
+
     async function refresh(){
       try{
         const [st,nd,lg]=await Promise.all([
@@ -367,6 +449,7 @@ R"rawliteral(
         if([...destSel.options].some(o=>o.value===prevDest)) destSel.value=prevDest;
         logPackets_=lg.packets?lg.packets.slice().reverse():[];
         renderLog();
+        if(_topoRunning) mergeTopology();
         set('tick','last update: '+new Date().toLocaleTimeString());
       }catch(e){}
     }
