@@ -175,7 +175,7 @@ void loop() {
                 lastHum   = hum;
 #endif
                 char payload[56];
-                snprintf(payload, sizeof(payload), "T:%.1fC,H:%.1f", tempC, hum);
+                snprintf(payload, sizeof(payload), "N:%s,T:%.1fC,H:%.1f", NODE_NAME, tempC, hum);
                 mesh.send(coordinatorMac, MESH_TYPE_DATA, 0x01, (const uint8_t*)payload, strlen(payload), 4);
                 Serial.printf("[TX] Sensor: %s\n", payload);
             } else {

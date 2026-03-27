@@ -83,7 +83,7 @@ void loop() {
             lastTemp = now;
             float tempC = temperatureRead();
             char payload[48];
-            snprintf(payload, sizeof(payload), "T:%.1fC", tempC);
+            snprintf(payload, sizeof(payload), "N:%s,T:%.1fC", NODE_NAME, tempC);
             mesh.send(coordinatorMac, MESH_TYPE_DATA, 0x01, (const uint8_t*)payload, strlen(payload), 4);
             Serial.printf("[TX] Temperature: %s\n", payload);
         }

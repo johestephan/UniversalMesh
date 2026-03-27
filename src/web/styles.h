@@ -55,6 +55,8 @@
 "#nodes-table td{word-break:normal;white-space:nowrap}" \
 "tr:last-child td{border-bottom:none}" \
 "tr:nth-child(even) td{background:rgba(0,0,0,0.06)}" \
+"tr.relayed td{background:rgba(30,100,255,0.10)!important}" \
+"[data-theme=dark] tr.relayed td{background:rgba(30,100,255,0.15)!important}" \
 /* --- Buttons (MMDVM style: solid filled, semantic colours) --- */ \
 ".btn{display:inline-block;font-family:Arial,sans-serif;font-size:14px;font-weight:bold;padding:8px 16px;border:none;border-radius:4px;cursor:pointer;transition:background-color .3s ease;text-align:center;margin:2px}" \
 ".btn:hover:not(:disabled){opacity:.9}" \
