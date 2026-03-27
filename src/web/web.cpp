@@ -236,6 +236,7 @@ static const char HTML[] PROGMEM = R"rawliteral(
     let logPage_=0;
     let logPackets_=[];
     let coordMac_='';
+    let nodeNames_={};
     function logPage(dir){
       logPage_=Math.max(0,Math.min(logPage_+dir,Math.ceil(logPackets_.length/PAGE_SIZE)-1));
       renderLog();
@@ -261,9 +262,9 @@ static const char HTML[] PROGMEM = R"rawliteral(
       page.forEach(p=>{
         lb.innerHTML+='<tr>'
           +'<td><span class="tag">'+({0x12:'PING',0x13:'PONG',0x15:'DATA'}[p.type]||'0x'+p.type.toString(16).padStart(2,'0'))+'</span></td>'
-          +'<td>'+p.src+'</td>'
+          +'<td>'+(nodeNames_[p.src.toUpperCase()]||p.src)+'</td>'
           +'<td>0x'+p.appId.toString(16).padStart(2,'0')+'</td>'
-          +'<td>'+(p.appId===0x06?'[announce] '+p.payload:p.appId===0x05?'[heartbeat]':p.appId===0x00?({0x12:'[discovery ping]',0x13:'[discovery pong]'}[p.type]||'[discovery]')+(p.origSrc!==p.src?' <span class="muted">from '+(p.origSrc.toUpperCase()===coordMac_?'[coordinator]':p.origSrc)+'</span>':''):p.payload)+'</td>'
+          +'<td>'+(p.appId===0x06?'[announce] '+p.payload:p.appId===0x05?'[heartbeat]'+(nodeNames_[p.src.toUpperCase()]?' '+nodeNames_[p.src.toUpperCase()]:''):p.appId===0x00?({0x12:'[discovery ping]',0x13:'[discovery pong]'}[p.type]||'[discovery]')+(p.origSrc!==p.src?' <span class="muted">from '+(p.origSrc.toUpperCase()===coordMac_?'[coordinator]':p.origSrc)+'</span>':''):p.payload)+'</td>'
           +'<td>'+p.age_s+'s</td>'
           +'</tr>';
       });
@@ -334,6 +335,8 @@ static const char HTML[] PROGMEM = R"rawliteral(
         }
 
         coordMac_=st.esp_mac.toUpperCase();
+        nodeNames_={};
+        if(nd.nodes) nd.nodes.forEach(n=>{ if(n.name) nodeNames_[n.mac.toUpperCase()]=n.name; });
         logPackets_=lg.packets?lg.packets.slice().reverse():[];
         renderLog();
         set('tick','last update: '+new Date().toLocaleTimeString());
