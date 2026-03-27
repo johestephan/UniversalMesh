@@ -263,7 +263,7 @@ static const char HTML[] PROGMEM = R"rawliteral(
           +'<td><span class="tag">'+({0x12:'PING',0x13:'PONG',0x15:'DATA'}[p.type]||'0x'+p.type.toString(16).padStart(2,'0'))+'</span></td>'
           +'<td>'+p.src+'</td>'
           +'<td>0x'+p.appId.toString(16).padStart(2,'0')+'</td>'
-          +'<td>'+(p.appId===0x05?'[heartbeat]':p.appId===0x00?({0x12:'[discovery ping]',0x13:'[discovery pong]'}[p.type]||'[discovery]')+(p.origSrc!==p.src?' <span class="muted">from '+(p.origSrc.toUpperCase()===coordMac_?'[coordinator]':p.origSrc)+'</span>':''):p.payload)+'</td>'
+          +'<td>'+(p.appId===0x06?'[announce] '+p.payload:p.appId===0x05?'[heartbeat]':p.appId===0x00?({0x12:'[discovery ping]',0x13:'[discovery pong]'}[p.type]||'[discovery]')+(p.origSrc!==p.src?' <span class="muted">from '+(p.origSrc.toUpperCase()===coordMac_?'[coordinator]':p.origSrc)+'</span>':''):p.payload)+'</td>'
           +'<td>'+p.age_s+'s</td>'
           +'</tr>';
       });
@@ -325,7 +325,8 @@ static const char HTML[] PROGMEM = R"rawliteral(
           nb.innerHTML='<tr><td>'+blueDot+st.esp_mac+' <span style="font-size:0.75em;color:#58a6ff">[coordinator]</span></td><td>-</td></tr>';
           nd.nodes.filter(n=>n.mac.toUpperCase()!==st.esp_mac.toUpperCase()).forEach(n=>{
             const dot='<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+(n.last_seen_seconds_ago<=120?'#3fb950':'#f85149')+';margin-right:6px"></span>';
-            nb.innerHTML+='<tr><td>'+dot+n.mac+'</td><td>'+n.last_seen_seconds_ago+'s ago</td></tr>';
+            const label=n.name?'<span style="font-size:0.85em;color:#58a6ff;margin-right:6px">'+n.name+'</span>':'';
+            nb.innerHTML+='<tr><td>'+dot+label+n.mac+'</td><td>'+n.last_seen_seconds_ago+'s ago</td></tr>';
           });
         }else{
           document.getElementById('nodes-empty').style.display='';

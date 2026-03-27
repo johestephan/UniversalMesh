@@ -91,6 +91,7 @@ void onMeshMessage(MeshPacket* packet, uint8_t* senderMac) {
         foundCoordinator = true;
         lastHeartbeat = millis() - HEARTBEAT_INTERVAL;
         lastSensor    = millis() - SENSOR_INTERVAL;
+        mesh.send(coordinatorMac, MESH_TYPE_DATA, 0x06, (const uint8_t*)nodeName, strlen(nodeName), 4);
         Serial.printf("[AUTO] Coordinator found at: %02X:%02X:%02X:%02X:%02X:%02X\n",
                       coordinatorMac[0], coordinatorMac[1], coordinatorMac[2],
                       coordinatorMac[3], coordinatorMac[4], coordinatorMac[5]);
@@ -157,6 +158,7 @@ void loop() {
             lastHeartbeat = now;
             uint8_t heartbeat = 0x01;
             mesh.send(coordinatorMac, MESH_TYPE_DATA, 0x05, &heartbeat, 1, 4);
+            mesh.send(coordinatorMac, MESH_TYPE_DATA, 0x06, (const uint8_t*)nodeName, strlen(nodeName), 4);
             Serial.printf("[TX] Heartbeat | MAC: %02X:%02X:%02X:%02X:%02X:%02X\n",
                           myMac[0], myMac[1], myMac[2], myMac[3], myMac[4], myMac[5]);
         }

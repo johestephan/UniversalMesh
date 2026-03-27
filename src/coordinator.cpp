@@ -133,9 +133,10 @@ void ledUpdate() {
 // --- ROUTING TABLE ---
 #define MAX_NODES 20
 struct KnownNode {
-  uint8_t mac[6];
+  uint8_t       mac[6];
   unsigned long lastSeen;
-  bool active;
+  bool          active;
+  char          name[32];
 };
 KnownNode meshNodes[MAX_NODES];
 
@@ -194,6 +195,20 @@ void onMeshMessage(MeshPacket* packet, uint8_t* senderMac) {
     char payloadStr[65] = {0};
     uint8_t len = packet->payloadLen < 64 ? packet->payloadLen : 64;
     memcpy(payloadStr, packet->payload, len);
+
+    if (packet->appId == 0x06) {
+      // Node announce — store name against MAC
+      lockMeshData();
+      for (int i = 0; i < MAX_NODES; i++) {
+        if (meshNodes[i].active && memcmp(meshNodes[i].mac, packet->srcMac, 6) == 0) {
+          strncpy(meshNodes[i].name, payloadStr, sizeof(meshNodes[i].name) - 1);
+          meshNodes[i].name[sizeof(meshNodes[i].name) - 1] = '\0';
+          break;
+        }
+      }
+      unlockMeshData();
+    }
+
     char logMsg[128];
     snprintf(logMsg, sizeof(logMsg), "[DATA] src=%02X:%02X:%02X:%02X:%02X:%02X appId=0x%02X payload=%s",
              senderMac[0], senderMac[1], senderMac[2],
@@ -386,6 +401,7 @@ void setup() {
                  snap[i].mac[3], snap[i].mac[4], snap[i].mac[5]);
         nodeObj["mac"] = macStr;
         nodeObj["last_seen_seconds_ago"] = (now - snap[i].lastSeen) / 1000;
+        if (snap[i].name[0]) nodeObj["name"] = snap[i].name;
       }
     }
 
