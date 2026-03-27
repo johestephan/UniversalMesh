@@ -1,4 +1,5 @@
 #include "web.h"
+#include "styles.h"
 #include <Arduino.h>
 #include <WiFi.h>
 #include <ArduinoJson.h>
@@ -82,63 +83,21 @@ static const char HTML[] PROGMEM = R"rawliteral(
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>UniversalMesh</title>
-  <style>
-    *{box-sizing:border-box;margin:0;padding:0}
-    :root{
-      --bg:#f6f8fa;--container-bg:#ffffff;--text:#24292f;--muted:#57606a;
-      --border:#d0d7de;--card-bg:#ffffff;--row-border:#d0d7de;
-      --sub:#8c959f;--empty:#8c959f;--tag-bg:#0969da;--tag:#fff;
-      --btn-bg:#f6f8fa;--btn-border:#d0d7de;--btn-color:#57606a;
-      --sel-bg:#fff;--sel-color:#24292f;--sel-border:#d0d7de;
-      --th:#57606a;--th-border:#d0d7de;--td:#24292f;--td-border:#eaeef2;
-      --dot-green:#1a7f37;--h1:#0969da;--h2:#57606a;
-    }
-    [data-theme=dark]{
-      --bg:#0d1117;--container-bg:#161b22;--text:#c9d1d9;--muted:#8b949e;
-      --border:#30363d;--card-bg:#161b22;--row-border:#21262d;
-      --sub:#484f58;--empty:#484f58;--tag-bg:#1f6feb;--tag:#e6edf3;
-      --btn-bg:#21262d;--btn-border:#30363d;--btn-color:#8b949e;
-      --sel-bg:#21262d;--sel-color:#e6edf3;--sel-border:#30363d;
-      --th:#8b949e;--th-border:#30363d;--td:#e6edf3;--td-border:#21262d;
-      --dot-green:#3fb950;--h1:#58a6ff;--h2:#8b949e;
-    }
-    body{font-family:monospace;background:var(--bg);color:var(--text);transition:background .2s,color .2s}
-    .container{max-width:1000px;margin:20px auto;padding:0 16px}
-    h1{color:var(--h1);margin-bottom:16px;font-size:1.3em;display:flex;align-items:center;gap:10px}
-    h2{color:var(--h2);font-size:0.78em;text-transform:uppercase;letter-spacing:.1em;margin-bottom:10px}
-    .grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:15px;margin-bottom:15px}
-    .card{background:var(--card-bg);border:1px solid var(--border);border-radius:6px;padding:14px}
-    .row{display:flex;justify-content:space-between;align-items:center;padding:5px 0;border-bottom:1px solid var(--row-border);font-size:0.83em}
-    .row:last-child{border-bottom:none}
-    .lbl{color:var(--muted)}
-    .val{color:var(--text);text-align:right}
-    table{width:100%;border-collapse:collapse;font-size:0.8em}
-    th{color:var(--th);text-align:left;padding:5px 4px;border-bottom:1px solid var(--th-border);font-weight:normal}
-    td{padding:5px 4px;border-bottom:1px solid var(--td-border);color:var(--td);word-break:break-all}
-    tr:last-child td{border-bottom:none}
-    .tag{font-size:0.75em;padding:1px 7px;border-radius:3px;background:var(--tag-bg);color:var(--tag)}
-    .dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--dot-green);margin-right:6px}
-    .sub{color:var(--sub);font-size:0.78em;margin-top:6px}
-    .empty{color:var(--empty);font-size:0.82em;padding:8px 0}
-    .theme-btn{margin-left:auto;background:none;border:1px solid var(--border);border-radius:6px;padding:4px 8px;cursor:pointer;font-size:1em;line-height:1;color:var(--text)}
-    .btn{font-family:monospace;font-size:0.75em;padding:2px 8px;border-radius:3px;border:1px solid var(--btn-border);background:var(--btn-bg);color:var(--btn-color);cursor:pointer}
-    .btn-red{color:#f85149}
-    .sel{font-family:monospace;font-size:0.83em;background:var(--sel-bg);color:var(--sel-color);border:1px solid var(--sel-border);border-radius:3px;padding:2px 4px}
-    @media screen and (max-width:600px){
-      .grid{grid-template-columns:1fr}
-    }
-    .console-out{font-family:monospace;background:#0d1117;color:#3fb950;height:220px;overflow-y:auto;white-space:pre-wrap;border-radius:4px;padding:10px;border:1px solid #30363d}
-  </style>
-  <script>
-    (function(){
-      var t=localStorage.getItem('theme')||'dark';
-      document.documentElement.setAttribute('data-theme',t);
-    })();
-  </script>
+)rawliteral"
+WEB_CSS
+R"rawliteral(
 </head>
 <body>
+  <nav class="navbar">
+    <span class="nav-brand"><span class="dot"></span>&nbsp;UniversalMesh</span>
+    <div class="nav-actions">
+      <button class="theme-btn" onclick="toggleConsole()" id="console-btn" title="Toggle serial console">&gt;_</button>
+      <button class="theme-btn" onclick="rebootDevice()" id="reboot-btn" title="Reboot coordinator" style="color:#dc3545">&#x21BA;</button>
+      <button class="theme-btn" onclick="toggleTheme()" id="theme-btn" title="Toggle dark/light mode">&#x1F319;</button>
+    </div>
+  </nav>
   <div class="container">
-  <h1><span class="dot"></span>UniversalMesh Coordinator<button class="theme-btn" onclick="toggleConsole()" id="console-btn" title="Toggle serial console" style="font-size:0.8em">&gt;_</button><button class="theme-btn" onclick="rebootDevice()" id="reboot-btn" title="Reboot coordinator" style="margin-left:6px;color:#f85149">↺</button><button class="theme-btn" onclick="toggleTheme()" id="theme-btn" title="Toggle dark/light mode" style="margin-left:6px">🌙</button></h1>
+  <h1>Coordinator</h1>
   <div class="grid">
     <div class="card">
       <h2>ESP</h2>
@@ -167,27 +126,31 @@ static const char HTML[] PROGMEM = R"rawliteral(
       <div class="row"><span class="lbl">Speed</span><span class="val" id="eth-speed">-</span></div>
     </div>
     <div class="card">
-      <h2>Mesh Nodes <button id="ping-all-btn" onclick="pingAll()" class="btn" style="float:right">ping all</button></h2>
+      <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px">
+        <h2 style="margin-bottom:0">Mesh Nodes</h2>
+        <button id="ping-all-btn" onclick="pingAll()" class="btn btn-primary">Ping All</button>
+      </div>
       <div id="nodes-empty" class="empty">No nodes discovered yet</div>
       <table id="nodes-table" style="display:none">
-        <thead><tr><th>MAC</th><th>Last Seen</th></tr></thead>
+        <thead><tr><th>Node</th><th>Last Seen</th></tr></thead>
         <tbody id="nodes-body"></tbody>
       </table>
     </div>
     <div class="card" id="mesh-card" style="display:none">
       <h2>Mesh</h2>
-      <div class="row"><span class="lbl">Channel</span>
-        <span class="val">
-          <select id="mesh-ch-sel" class="sel">
-            <option value="1">1</option><option value="2">2</option><option value="3">3</option>
-            <option value="4">4</option><option value="5">5</option><option value="6">6</option>
-            <option value="7">7</option><option value="8">8</option><option value="9">9</option>
-            <option value="10">10</option><option value="11">11</option><option value="12">12</option>
-            <option value="13">13</option>
-          </select>
-          <button onclick="saveMeshCh(false)" class="btn" style="margin-left:6px" id="mesh-ch-btn">save</button>
-          <button onclick="saveMeshCh(true)" class="btn btn-red" style="margin-left:4px" id="mesh-ch-reboot-btn">save &amp; reboot</button>
-        </span>
+      <div class="row">
+        <span class="lbl">Channel</span>
+        <select id="mesh-ch-sel" class="sel">
+          <option value="1">1</option><option value="2">2</option><option value="3">3</option>
+          <option value="4">4</option><option value="5">5</option><option value="6">6</option>
+          <option value="7">7</option><option value="8">8</option><option value="9">9</option>
+          <option value="10">10</option><option value="11">11</option><option value="12">12</option>
+          <option value="13">13</option>
+        </select>
+      </div>
+      <div class="action-buttons-vertical">
+        <button onclick="saveMeshCh(false)" class="btn btn-success" id="mesh-ch-btn">Save</button>
+        <button onclick="saveMeshCh(true)" class="btn btn-danger" id="mesh-ch-reboot-btn">Save &amp; Reboot</button>
       </div>
     </div>
   </div>
@@ -200,8 +163,8 @@ static const char HTML[] PROGMEM = R"rawliteral(
     </table>
     <div style="display:flex;justify-content:space-between;align-items:center;margin-top:8px">
       <div>
-        <button id="log-prev" onclick="logPage(-1)" class="btn" style="margin-right:4px">&laquo; prev</button>
-        <button id="log-next" onclick="logPage(1)"  class="btn">next &raquo;</button>
+        <button id="log-prev" onclick="logPage(-1)" class="btn btn-secondary">&laquo; Prev</button>
+        <button id="log-next" onclick="logPage(1)"  class="btn btn-secondary">Next &raquo;</button>
       </div>
       <div class="sub" id="tick"></div>
     </div>
@@ -323,11 +286,13 @@ static const char HTML[] PROGMEM = R"rawliteral(
           document.getElementById('nodes-empty').style.display='none';
           document.getElementById('nodes-table').style.display='';
           const blueDot='<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#58a6ff;margin-right:6px"></span>';
-          nb.innerHTML='<tr><td>'+blueDot+st.esp_mac+' <span style="font-size:0.75em;color:#58a6ff">[coordinator]</span></td><td>-</td></tr>';
+          nb.innerHTML='<tr><td>'+blueDot+'<span style="color:#58a6ff;font-weight:bold">coordinator</span><br><span style="font-size:0.85em;color:var(--muted)">'+st.esp_mac+'</span></td><td>-</td></tr>';
           nd.nodes.filter(n=>n.mac.toUpperCase()!==st.esp_mac.toUpperCase()).forEach(n=>{
             const dot='<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+(n.last_seen_seconds_ago<=120?'#3fb950':'#f85149')+';margin-right:6px"></span>';
-            const label=n.name?'<span style="font-size:0.85em;color:#58a6ff;margin-right:6px">'+n.name+'</span>':'';
-            nb.innerHTML+='<tr><td>'+dot+label+n.mac+'</td><td>'+n.last_seen_seconds_ago+'s ago</td></tr>';
+            const node=n.name
+              ?'<span style="color:#58a6ff;font-weight:bold">'+n.name+'</span><br><span style="font-size:0.85em;color:var(--muted)">'+n.mac+'</span>'
+              :n.mac;
+            nb.innerHTML+='<tr><td>'+dot+node+'</td><td style="white-space:nowrap">'+n.last_seen_seconds_ago+'s ago</td></tr>';
           });
         }else{
           document.getElementById('nodes-empty').style.display='';
