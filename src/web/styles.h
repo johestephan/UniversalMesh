@@ -56,8 +56,8 @@
 "#log-table td{word-break:normal;white-space:nowrap}" \
 "tr:last-child td{border-bottom:none}" \
 "tr:nth-child(even) td{background:rgba(0,0,0,0.06)}" \
-"tr.relayed td:first-child{border-left:3px solid #2dd4ff;background:linear-gradient(90deg,rgba(45,212,255,0.20) 0%,rgba(45,212,255,0.08) 38%,rgba(45,212,255,0) 100%)!important;box-shadow:inset 0 0 10px rgba(45,212,255,0.22)}" \
-"[data-theme=dark] tr.relayed td:first-child{border-left:3px solid #2dd4ff;background:linear-gradient(90deg,rgba(45,212,255,0.24) 0%,rgba(45,212,255,0.10) 38%,rgba(45,212,255,0) 100%)!important;box-shadow:inset 0 0 12px rgba(45,212,255,0.30)}" \
+"tr.relayed td:first-child{border-left:3px solid #2dd4ff;background:transparent!important;box-shadow:-2px 0 8px rgba(45,212,255,0.35),inset 1px 0 0 rgba(45,212,255,0.45)}" \
+"[data-theme=dark] tr.relayed td:first-child{border-left:3px solid #2dd4ff;background:transparent!important;box-shadow:-2px 0 10px rgba(45,212,255,0.45),inset 1px 0 0 rgba(45,212,255,0.55)}" \
 /* --- Buttons (MMDVM style: solid filled, semantic colours) --- */ \
 ".btn{display:inline-block;font-family:Arial,sans-serif;font-size:14px;font-weight:bold;padding:8px 16px;border:none;border-radius:4px;cursor:pointer;transition:background-color .3s ease;text-align:center;margin:2px}" \
 ".btn:hover:not(:disabled){opacity:.9}" \
