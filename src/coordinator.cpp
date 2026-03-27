@@ -10,6 +10,10 @@
 #include "UniversalMesh.h"
 #include "web/web.h"
 
+#ifndef MESH_HOSTNAME
+  #define MESH_HOSTNAME "universalmesh"
+#endif
+
 #ifdef LILYGO_T_ETH_ELITE
 #include <ETH.h>
 #include <Preferences.h>
@@ -234,6 +238,7 @@ void setup() {
 
   Serial.println("\n=== MESH MASTER BRIDGE INITIALIZING ===");
 
+  WiFi.setHostname(MESH_HOSTNAME);
   WiFi.mode(WIFI_STA);
 
 #ifdef LILYGO_T_ETH_ELITE
