@@ -438,51 +438,56 @@ R"rawliteral(
       _topoAnim=requestAnimationFrame(topoTick);
     }
 
-    async function refresh(){
+    async function refreshSlow(){
       try{
-        const [st,nd,lg]=await Promise.all([
-          fetch('/api/status').then(r=>r.json()),
+        const st=await fetch('/api/status').then(r=>r.json());
+        set('chip',    st.chip);
+        set('cores',   st.cores);
+        set('cpu',     st.cpu_mhz+' MHz');
+        set('flash',   fmtBytes(st.flash_size));
+        set('heap',    fmtBytes(st.free_heap));
+        set('esp-mac', st.esp_mac);
+        set('uptime',  fmtUptime(st.uptime_ms));
+        set('ntp-time',st.ntp_synced?st.ntp_time:'syncing\u2026');
+        set('ssid',    st.ssid);
+        set('ip',      st.ip);
+        set('gw',      st.gateway);
+        set('rssi',    st.rssi+' dBm');
+        set('ch',      st.channel);
+        document.getElementById('wifi-card').style.display=st.wifi_connected?'':'none';
+        if(st.eth_present){
+          document.getElementById('eth-card').style.display='';
+          set('eth-status',st.eth_connected?'\uD83D\uDFE2 Connected':'\uD83D\uDD34 Disconnected');
+          set('eth-ip',    st.eth_ip);
+          set('eth-subnet',st.eth_subnet);
+          set('eth-gw',    st.eth_gateway);
+          set('eth-dns',   st.eth_dns);
+          set('eth-mac',   st.eth_mac);
+          set('eth-speed', st.eth_connected?st.eth_speed_mbps+'Mbps '+(st.eth_full_duplex?'Full':'Half')+'-Duplex':'-');
+          document.getElementById('mesh-card').style.display='';
+          const sel=document.getElementById('mesh-ch-sel');
+          if(sel&&st.mesh_channel&&!meshChDirty) sel.value=st.mesh_channel;
+        }
+        _stCache=st;
+        _ntpRef=st.ntp_synced?new Date(st.ntp_time.replace(' ','T')):null;
+        document.getElementById('log-time-hdr').textContent=_ntpRef?'Time':'Age';
+        coordMac_=st.esp_mac.toUpperCase();
+      }catch(e){}
+    }
+    async function refreshFast(){
+      try{
+        const [nd,lg]=await Promise.all([
           fetch('/api/nodes').then(r=>r.json()),
           fetch('/api/log').then(r=>r.json())
         ]);
-        set('chip',     st.chip);
-        set('cores',    st.cores);
-        set('cpu',      st.cpu_mhz+' MHz');
-        set('flash',    fmtBytes(st.flash_size));
-        set('heap',     fmtBytes(st.free_heap));
-        set('esp-mac',  st.esp_mac);
-        set('uptime',   fmtUptime(st.uptime_ms));
-        set('ntp-time', st.ntp_synced ? st.ntp_time : 'syncing…');
-        set('ssid',     st.ssid);
-        set('ip',       st.ip);
-        set('gw',       st.gateway);
-        set('rssi',     st.rssi+' dBm');
-        set('ch',       st.channel);
-
-        document.getElementById('wifi-card').style.display = st.wifi_connected ? '' : 'none';
-
-        if(st.eth_present){
-          document.getElementById('eth-card').style.display='';
-          set('eth-status', st.eth_connected ? '🟢 Connected' : '🔴 Disconnected');
-          set('eth-ip',     st.eth_ip);
-          set('eth-subnet', st.eth_subnet);
-          set('eth-gw',     st.eth_gateway);
-          set('eth-dns',    st.eth_dns);
-          set('eth-mac',    st.eth_mac);
-          set('eth-speed',  st.eth_connected ? st.eth_speed_mbps+'Mbps '+(st.eth_full_duplex?'Full':'Half')+'-Duplex' : '-');
-          document.getElementById('mesh-card').style.display='';
-          const sel=document.getElementById('mesh-ch-sel');
-          if(sel && st.mesh_channel && !meshChDirty) sel.value=st.mesh_channel;
-        }
-
         const nb=document.getElementById('nodes-body');
         nb.innerHTML='';
         if(nd.nodes&&nd.nodes.length){
           document.getElementById('nodes-empty').style.display='none';
           document.getElementById('nodes-table').style.display='';
           const blueDot='<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#58a6ff;margin-right:6px"></span>';
-          nb.innerHTML='<tr><td>'+blueDot+'<span style="color:#58a6ff;font-weight:bold">coordinator</span><br><span style="font-size:0.85em;color:var(--muted)">'+st.esp_mac+'</span></td><td>-</td></tr>';
-          nd.nodes.filter(n=>n.mac.toUpperCase()!==st.esp_mac.toUpperCase()).forEach(n=>{
+          nb.innerHTML='<tr><td>'+blueDot+'<span style="color:#58a6ff;font-weight:bold">coordinator</span><br><span style="font-size:0.85em;color:var(--muted)">'+coordMac_+'</span></td><td>-</td></tr>';
+          nd.nodes.filter(n=>n.mac.toUpperCase()!==coordMac_).forEach(n=>{
             const dot='<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+(n.last_seen_seconds_ago<=120?'#3fb950':'#f85149')+';margin-right:6px"></span>';
             const node=n.name
               ?'<span style="color:#58a6ff;font-weight:bold">'+n.name+'</span><br><span style="font-size:0.85em;color:var(--muted)">'+n.mac+'</span>'
@@ -493,11 +498,6 @@ R"rawliteral(
           document.getElementById('nodes-empty').style.display='';
           document.getElementById('nodes-table').style.display='none';
         }
-
-        _stCache=st;
-        _ntpRef=st.ntp_synced?new Date(st.ntp_time.replace(' ','T')):null;
-        document.getElementById('log-time-hdr').textContent=_ntpRef?'Time':'Age';
-        coordMac_=st.esp_mac.toUpperCase();
         nodeNames_={};
         if(nd.nodes) nd.nodes.forEach(n=>{ if(n.name) nodeNames_[n.mac.toUpperCase()]=n.name; });
         const destSel=document.getElementById('msg-dest');
@@ -545,8 +545,9 @@ R"rawliteral(
       if(_consoleOpen){refreshConsole();_consoleInterval=setInterval(refreshConsole,2000);}
       else{clearInterval(_consoleInterval);_consoleInterval=null;}
     }
-    refresh();
-    setInterval(refresh,3000);
+    refreshSlow(); refreshFast();
+    setInterval(refreshSlow,5000);
+    setInterval(refreshFast,1000);
   </script>
 </body>
 </html>
