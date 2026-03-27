@@ -162,6 +162,23 @@ R"rawliteral(
         <button onclick="saveMeshCh(true)" class="btn btn-danger" id="mesh-ch-reboot-btn">Save &amp; Reboot</button>
       </div>
     </div>
+    <div class="card">
+      <h2>Send Message</h2>
+      <div class="row" style="margin-bottom:8px">
+        <span class="lbl">To</span>
+        <select id="msg-dest" class="sel" style="flex:1">
+          <option value="FF:FF:FF:FF:FF:FF">Broadcast — FF:FF:FF:FF:FF:FF</option>
+        </select>
+      </div>
+      <div class="row" style="margin-bottom:8px">
+        <span class="lbl">Text</span>
+        <input id="msg-text" class="sel" style="flex:1" placeholder="Hello mesh..." maxlength="64" onkeydown="if(event.key==='Enter')sendMsg()">
+      </div>
+      <div class="action-buttons-vertical">
+        <button id="msg-send-btn" onclick="sendMsg()" class="btn btn-primary">Send (App&nbsp;0x01)</button>
+      </div>
+      <div id="msg-status" style="margin-top:6px;font-size:0.85em;color:var(--sub);text-align:center"></div>
+    </div>
   </div>
   <div class="card">
     <h2>Live Packet Log <span id="log-pageinfo" style="float:right;font-size:0.8em;color:var(--sub)"></span></h2>
@@ -194,6 +211,30 @@ R"rawliteral(
       btn.textContent='…';btn.disabled=true;
       try{ await fetch('/api/reboot',{method:'POST'}); }catch(e){}
       btn.textContent='↺';btn.disabled=false;
+    }
+    async function sendMsg(){
+      const text=document.getElementById('msg-text').value.trim();
+      if(!text) return;
+      const dest=document.getElementById('msg-dest').value;
+      let hex='';
+      const bytes=Math.min(text.length,64);
+      for(let i=0;i<bytes;i++) hex+=text.charCodeAt(i).toString(16).padStart(2,'0');
+      const btn=document.getElementById('msg-send-btn');
+      const status=document.getElementById('msg-status');
+      btn.disabled=true; status.textContent='Sending…';
+      try{
+        const r=await fetch('/api/tx',{method:'POST',headers:{'Content-Type':'application/json'},
+          body:JSON.stringify({dest,appId:1,payload:hex,ttl:4})});
+        const d=await r.json();
+        status.style.color='#28a745';
+        status.textContent=d.status==='data_sent'?'Sent!':'Error';
+        if(d.status==='data_sent') document.getElementById('msg-text').value='';
+      }catch(e){
+        status.style.color='#dc3545';
+        status.textContent='Failed';
+      }
+      btn.disabled=false;
+      setTimeout(()=>{status.textContent='';status.style.color='var(--sub)';},2500);
     }
     function toggleTheme(){
       const isDark=document.documentElement.getAttribute('data-theme')==='dark';
@@ -314,6 +355,16 @@ R"rawliteral(
         coordMac_=st.esp_mac.toUpperCase();
         nodeNames_={};
         if(nd.nodes) nd.nodes.forEach(n=>{ if(n.name) nodeNames_[n.mac.toUpperCase()]=n.name; });
+        const destSel=document.getElementById('msg-dest');
+        const prevDest=destSel.value;
+        destSel.innerHTML='<option value="FF:FF:FF:FF:FF:FF">Broadcast \u2014 FF:FF:FF:FF:FF:FF</option>';
+        if(nd.nodes) nd.nodes.filter(n=>n.mac.toUpperCase()!==coordMac_).forEach(n=>{
+          const opt=document.createElement('option');
+          opt.value=n.mac;
+          opt.textContent=(n.name||n.mac)+(n.name?' \u2014 '+n.mac:'');
+          destSel.appendChild(opt);
+        });
+        if([...destSel.options].some(o=>o.value===prevDest)) destSel.value=prevDest;
         logPackets_=lg.packets?lg.packets.slice().reverse():[];
         renderLog();
         set('tick','last update: '+new Date().toLocaleTimeString());
@@ -428,19 +479,19 @@ void initWebDashboard(AsyncWebServer& server) {
   });
 
   server.on("/apple-touch-icon.png", HTTP_GET, [](AsyncWebServerRequest* request) {
-    AsyncWebServerResponse* response = request->beginResponse_P(200, "image/png", TOUCH_ICON_PNG, TOUCH_ICON_PNG_LEN);
+    AsyncWebServerResponse* response = request->beginResponse(200, "image/png", TOUCH_ICON_PNG, TOUCH_ICON_PNG_LEN);
     response->addHeader("Cache-Control", "max-age=86400");
     request->send(response);
   });
 
   server.on("/pwa-icon-192.png", HTTP_GET, [](AsyncWebServerRequest* request) {
-    AsyncWebServerResponse* response = request->beginResponse_P(200, "image/png", PWA_ICON_192_PNG, PWA_ICON_192_PNG_LEN);
+    AsyncWebServerResponse* response = request->beginResponse(200, "image/png", PWA_ICON_192_PNG, PWA_ICON_192_PNG_LEN);
     response->addHeader("Cache-Control", "max-age=86400");
     request->send(response);
   });
 
   server.on("/pwa-icon-512.png", HTTP_GET, [](AsyncWebServerRequest* request) {
-    AsyncWebServerResponse* response = request->beginResponse_P(200, "image/png", PWA_ICON_512_PNG, PWA_ICON_512_PNG_LEN);
+    AsyncWebServerResponse* response = request->beginResponse(200, "image/png", PWA_ICON_512_PNG, PWA_ICON_512_PNG_LEN);
     response->addHeader("Cache-Control", "max-age=86400");
     request->send(response);
   });
