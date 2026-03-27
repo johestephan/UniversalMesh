@@ -297,7 +297,7 @@ R"rawliteral(
           +'<td>'+(nodeNames_[p.src.toUpperCase()]||p.src)+'</td>'
           +'<td>0x'+p.appId.toString(16).padStart(2,'0')+'</td>'
           +'<td>'+(p.appId===0x06?'[announce] '+p.payload:p.appId===0x05?'[heartbeat] '+(nodeNames_[p.origSrc.toUpperCase()]||nodeNames_[p.src.toUpperCase()]||p.origSrc):p.appId===0x00?({0x12:'[discovery ping]',0x13:'[discovery pong]'}[p.type]||'[discovery]')+(p.origSrc!==p.src?' <span class="muted">from '+(p.origSrc.toUpperCase()===coordMac_?'[coordinator]':p.origSrc)+'</span>':''):p.payload)+'</td>'
-          +'<td>'+fmtPacketTime(p.age_s)+'</td>'
+          +'<td>'+(p._time?p._time.toTimeString().slice(0,8):p.age_s+'s ago')+'</td>'
           +'</tr>';
       });
     }
@@ -470,7 +470,7 @@ R"rawliteral(
         }
         _stCache=st;
         _ntpRef=st.ntp_synced?new Date(st.ntp_time.replace(' ','T')):null;
-        document.getElementById('log-time-hdr').textContent=_ntpRef?'Time':'Age';
+        document.getElementById('log-time-hdr').textContent='Time';
         coordMac_=st.esp_mac.toUpperCase();
       }catch(e){}
     }
@@ -510,7 +510,8 @@ R"rawliteral(
           destSel.appendChild(opt);
         });
         if([...destSel.options].some(o=>o.value===prevDest)) destSel.value=prevDest;
-        logPackets_=lg.packets?lg.packets.slice().reverse():[];
+        const _fetchNow=Date.now();
+        logPackets_=lg.packets?lg.packets.slice().reverse().map(p=>({...p,_time:new Date(_fetchNow-p.age_s*1000)})):[];
         renderLog();
         if(_topoRunning){ mergeTopology(); updateTopoLastSeen(nd.nodes); renderTopoInfo(); }
         set('tick','last update: '+new Date().toLocaleTimeString());
