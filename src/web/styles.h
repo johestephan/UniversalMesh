@@ -56,8 +56,8 @@
 "#log-table td{word-break:normal;white-space:nowrap}" \
 "tr:last-child td{border-bottom:none}" \
 "tr:nth-child(even) td{background:rgba(0,0,0,0.06)}" \
-"tr.relayed td{background:rgba(30,100,255,0.10)!important}" \
-"[data-theme=dark] tr.relayed td{background:rgba(30,100,255,0.15)!important}" \
+"tr.relayed td:first-child{border-left:3px solid #2dd4ff;background:linear-gradient(90deg,rgba(45,212,255,0.20) 0%,rgba(45,212,255,0.08) 38%,rgba(45,212,255,0) 100%)!important;box-shadow:inset 0 0 10px rgba(45,212,255,0.22)}" \
+"[data-theme=dark] tr.relayed td:first-child{border-left:3px solid #2dd4ff;background:linear-gradient(90deg,rgba(45,212,255,0.24) 0%,rgba(45,212,255,0.10) 38%,rgba(45,212,255,0) 100%)!important;box-shadow:inset 0 0 12px rgba(45,212,255,0.30)}" \
 /* --- Buttons (MMDVM style: solid filled, semantic colours) --- */ \
 ".btn{display:inline-block;font-family:Arial,sans-serif;font-size:14px;font-weight:bold;padding:8px 16px;border:none;border-radius:4px;cursor:pointer;transition:background-color .3s ease;text-align:center;margin:2px}" \
 ".btn:hover:not(:disabled){opacity:.9}" \
@@ -74,7 +74,7 @@
 ".action-buttons-vertical .btn{width:100%;margin:0}" \
 ".sel{font-family:Arial,sans-serif;font-size:13px;background:var(--card-bg);color:var(--text);border:1px solid var(--border);border-radius:4px;padding:4px 8px}" \
 /* --- Components --- */ \
-".tag{font-size:12px;padding:3px 8px;border-radius:4px;background:#007bff;color:#fff;font-weight:bold}" \
+".tag{font-size:12px;padding:3px 8px;border-radius:4px;background:#1293ff;color:#f4faff;font-weight:bold}" \
 ".dot{display:inline-block;width:10px;height:10px;border-radius:50%;background:var(--dot-green)}" \
 ".sub{color:var(--muted);font-size:0.85em;margin-top:6px}" \
 ".muted{color:var(--muted)}" \
