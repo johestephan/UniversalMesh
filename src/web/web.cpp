@@ -118,7 +118,7 @@ R"rawliteral(
       <div class="row"><span class="lbl">Channel</span><span class="val" id="ch">-</span></div>
     </div>
     <div class="card" id="eth-card" style="display:none">
-      <h2>&#x1F5A7; Ethernet</h2>
+      <h2>Ethernet</h2>
       <div class="row"><span class="lbl">Status</span><span class="val" id="eth-status">-</span></div>
       <div class="row"><span class="lbl">IP</span><span class="val" id="eth-ip">-</span></div>
       <div class="row"><span class="lbl">Gateway</span><span class="val" id="eth-gw">-</span></div>

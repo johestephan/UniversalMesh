@@ -15,7 +15,9 @@ float         lastTempC      = NAN;
 float         lastHum        = NAN;
 #endif
 
-#define nodeName            "wemosd1-sht30"
+#ifndef NODE_NAME
+  #define NODE_NAME "sensor-node"
+#endif
 #define WIFI_CHANNEL        1
 #define HEARTBEAT_INTERVAL  60000
 #define SENSOR_INTERVAL     30000
@@ -91,7 +93,7 @@ void onMeshMessage(MeshPacket* packet, uint8_t* senderMac) {
         foundCoordinator = true;
         lastHeartbeat = millis() - HEARTBEAT_INTERVAL;
         lastSensor    = millis() - SENSOR_INTERVAL;
-        mesh.send(coordinatorMac, MESH_TYPE_DATA, 0x06, (const uint8_t*)nodeName, strlen(nodeName), 4);
+        mesh.send(coordinatorMac, MESH_TYPE_DATA, 0x06, (const uint8_t*)NODE_NAME, strlen(NODE_NAME), 4);
         Serial.printf("[AUTO] Coordinator found at: %02X:%02X:%02X:%02X:%02X:%02X\n",
                       coordinatorMac[0], coordinatorMac[1], coordinatorMac[2],
                       coordinatorMac[3], coordinatorMac[4], coordinatorMac[5]);
@@ -158,7 +160,7 @@ void loop() {
             lastHeartbeat = now;
             uint8_t heartbeat = 0x01;
             mesh.send(coordinatorMac, MESH_TYPE_DATA, 0x05, &heartbeat, 1, 4);
-            mesh.send(coordinatorMac, MESH_TYPE_DATA, 0x06, (const uint8_t*)nodeName, strlen(nodeName), 4);
+            mesh.send(coordinatorMac, MESH_TYPE_DATA, 0x06, (const uint8_t*)NODE_NAME, strlen(NODE_NAME), 4);
             Serial.printf("[TX] Heartbeat | MAC: %02X:%02X:%02X:%02X:%02X:%02X\n",
                           myMac[0], myMac[1], myMac[2], myMac[3], myMac[4], myMac[5]);
         }
@@ -173,7 +175,7 @@ void loop() {
                 lastHum   = hum;
 #endif
                 char payload[56];
-                snprintf(payload, sizeof(payload), "N:%s,T:%.1fC,H:%.1f", nodeName, tempC, hum);
+                snprintf(payload, sizeof(payload), "T:%.1fC,H:%.1f", tempC, hum);
                 mesh.send(coordinatorMac, MESH_TYPE_DATA, 0x01, (const uint8_t*)payload, strlen(payload), 4);
                 Serial.printf("[TX] Sensor: %s\n", payload);
             } else {
