@@ -2,6 +2,33 @@
 
 A lightweight, Layer-3 mesh networking protocol built on top of ESP-NOW for ESP32 and ESP8266. Enables seamless, long-range communication between nodes without a central Wi-Fi router.
 
+## Table of Contents
+
+- [Features](#features)
+- [Architecture](#architecture)
+  - [Packet Structure](#packet-structure)
+  - [AppId Reference](#appid-reference)
+- [Supported Hardware](#supported-hardware)
+  - [Coordinators](#coordinators)
+  - [Sensor Nodes](#sensor-nodes)
+  - [Display Gateway](#display-gateway)
+- [Getting Started](#getting-started)
+  - [Installation](#installation)
+  - [Configuration](#configuration)
+  - [Build](#build)
+- [Sensor Node Behaviour](#sensor-node-behaviour)
+- [Coordinator Web Dashboard](#coordinator-web-dashboard)
+  - [Panels](#panels)
+  - [UI Features](#ui-features)
+  - [REST API](#rest-api)
+- [ETH Elite Features](#eth-elite-features)
+- [RGB LED](#rgb-led)
+- [messenger.py — Python Test Client](#messengerpy--python-test-client)
+- [Development Stack](#development-stack)
+- [License](#license)
+
+---
+
 ## Features
 
 - **Auto-Relay:** Every node acts as a repeater (TTL-based) to extend range.
@@ -16,11 +43,13 @@ A lightweight, Layer-3 mesh networking protocol built on top of ESP-NOW for ESP3
 - **NTP Time Sync:** Coordinator syncs to NTP; packet timestamps shown as wall-clock time in the dashboard.
 - **PWA Support:** Dashboard is installable on mobile as a standalone app (iOS & Android).
 
+---
+
 ## Architecture
 
 The network consists of a **Coordinator** (the bridge) and multiple **Sensor Nodes**.
 
-### Packet Structure (Binary)
+### Packet Structure
 
 The library uses a fixed-size packed struct:
 
@@ -44,6 +73,8 @@ The library uses a fixed-size packed struct:
 | `0x02` | Raw Hex | Raw binary payload |
 | `0x05` | Heartbeat | Periodic alive signal (single byte) |
 | `0x06` | Node Announce | Node broadcasts its name; coordinator stores it in the node table |
+
+---
 
 ## Supported Hardware
 
@@ -71,6 +102,82 @@ The library uses a fixed-size packed struct:
 | Environment | Board | Notes |
 | :--- | :--- | :--- |
 | `gateway_esp8266` | NodeMCU v2 (ESP8266) | Receives mesh packets and displays them on SSD1306 OLED |
+
+---
+
+## Getting Started
+
+### Installation
+
+1. Clone or copy the `lib/UniversalMesh/` folder into your project's `lib/` directory.
+2. Create `include/secrets.h` with your credentials (see [Configuration](#configuration) below).
+3. All ESP32 environments use the `pioarduino` platform (set as the default in `[platformio]`). ESP8266 environments (`sensor_wemos_d1`, `gateway_esp8266`) use the standard `espressif8266` platform — no changes needed.
+
+### Configuration
+
+#### `include/secrets.h` — credentials (git-ignored)
+
+Create this file before building. It holds secrets only:
+
+```cpp
+// WiFi (all coordinators)
+#define WIFI_SSID "your-ssid"
+#define WIFI_PASS "your-password"
+
+// MQTT broker (ETH Elite only)
+#define MQTT_BROKER "192.168.1.x"   // IP or hostname
+#define MQTT_PORT   1883
+#define MQTT_USER   ""              // leave empty if not required
+#define MQTT_PASS   ""
+```
+
+#### `platformio.ini` build flags — non-secret settings
+
+Network identity, OTA and NTP are configured as build flags per environment:
+
+```ini
+build_flags =
+    -D MESH_HOSTNAME=\"universalmesh\"   ; mDNS name and MQTT path prefix
+    -D MESH_NETWORK=\"mymesh\"           ; MQTT topic root
+    -D OTA_PASSWORD=\"mesh1234\"         ; keep in sync with upload_flags --auth=
+    -D NTP_SERVER=\"pool.ntp.org\"
+    -D NTP_GMT_OFFSET_SEC=3600          ; UTC offset in seconds (e.g. 3600 = UTC+1)
+```
+
+`NODE_NAME` is set per sensor node environment:
+
+```ini
+build_flags =
+    -D NODE_NAME=\"my-node\"
+```
+
+If not set, it falls back to `"sensor-node"` via an `#ifndef` guard in the source.
+
+### Build
+
+Flash and monitor a specific environment:
+
+```
+pio run -e coordinator_c6 -t upload -t monitor
+```
+
+OTA upload (ETH Elite):
+
+```
+pio run -e coordinator_eth_elite_ota -t upload
+```
+
+---
+
+## Sensor Node Behaviour
+
+Each sensor node:
+
+1. On boot, sends an **AppId `0x06`** Node Announce packet with its `NODE_NAME` string.
+2. Every `HEARTBEAT_INTERVAL` ms (default 60 s), sends an **AppId `0x05`** heartbeat and re-sends the announce.
+3. Sends sensor readings (e.g. temperature/humidity) as **AppId `0x01`** data packets.
+
+---
 
 ## Coordinator Web Dashboard
 
@@ -111,19 +218,7 @@ The coordinator serves a responsive single-page dashboard on port 80.
 | `/api/mesh/channel` | POST | Set ESP-NOW channel 1–13, optionally reboot *(ETH Elite only)* |
 | `/api/reboot` | POST | Reboot the coordinator |
 
-## Sensor Node Behaviour
-
-Each sensor node:
-1. On boot, sends an **AppId `0x06`** Node Announce packet with its `nodeName` string.
-2. Every `HEARTBEAT_INTERVAL` ms (default 60 s), sends an **AppId `0x05`** heartbeat and re-sends the announce.
-3. Sends sensor readings (e.g. temperature/humidity) as **AppId `0x01`** data packets.
-
-`NODE_NAME` is set per-environment as a build flag in `platformio.ini`:
-```ini
-build_flags =
-    -D NODE_NAME=\"my-node\"
-```
-If not set, it falls back to `"sensor-node"` via an `#ifndef` guard in the source.
+---
 
 ## ETH Elite Features
 
@@ -143,9 +238,11 @@ The `coordinator_eth_elite` / `coordinator_eth_elite_ota` builds add:
 - **mDNS** — reachable at `universalmesh.local` (hostname set via the `MESH_HOSTNAME` build flag in `platformio.ini`).
 - **Mesh channel selector** — change ESP-NOW channel (1–13) via the dashboard, persisted to NVS across reboots.
 
-## RGB LED (ESP32-C6 Coordinator)
+---
 
-The C6 coordinator uses pin 8 (NeoPixel) as a status indicator:
+## RGB LED
+
+The ESP32-C6 coordinator uses pin 8 (NeoPixel) as a status indicator:
 
 | State | Colour | Pattern |
 | :--- | :--- | :--- |
@@ -154,6 +251,8 @@ The C6 coordinator uses pin 8 (NeoPixel) as a status indicator:
 | WiFi failed | Red | Steady |
 | Packet received | Yellow | 3 quick flashes |
 | Packet transmitted | Blue | 3 quick flashes |
+
+---
 
 ## `messenger.py` — Python Test Client
 
@@ -168,54 +267,7 @@ python3 messenger.py -l -n 10 -i 1.0         # send 10 messages, 1 s apart
 
 Edit `COORDINATOR_IP` at the top of the file to point to your coordinator.
 
-## Configuration
-
-### `include/secrets.h` — credentials (git-ignored)
-
-Create this file before building. It holds secrets only:
-
-```cpp
-// WiFi (all coordinators)
-#define WIFI_SSID "your-ssid"
-#define WIFI_PASS "your-password"
-
-// MQTT broker (ETH Elite only)
-#define MQTT_BROKER "192.168.1.x"   // IP or hostname
-#define MQTT_PORT   1883
-#define MQTT_USER   ""              // leave empty if not required
-#define MQTT_PASS   ""
-```
-
-### `platformio.ini` build flags — non-secret settings
-
-Network identity, OTA and NTP are set as build flags per environment:
-
-```ini
-build_flags =
-    -D MESH_HOSTNAME=\"universalmesh\"   ; mDNS name and MQTT path prefix
-    -D MESH_NETWORK=\"mymesh\"           ; MQTT topic root
-    -D OTA_PASSWORD=\"mesh1234\"         ; keep in sync with upload_flags --auth=
-    -D NTP_SERVER=\"pool.ntp.org\"
-    -D NTP_GMT_OFFSET_SEC=3600          ; UTC offset in seconds (e.g. 3600 = UTC+1)
-```
-
-## Installation
-
-1. Clone or copy the `lib/UniversalMesh/` folder into your project's `lib/` directory.
-2. Create `include/secrets.h` with your credentials (see above).
-3. All ESP32 environments use the `pioarduino` platform (set as the default in `[platformio]`). ESP8266 environments (`sensor_wemos_d1`, `gateway_esp8266`) use the standard `espressif8266` platform — no changes needed.
-
-## Build
-
-Flash and monitor a specific environment:
-```
-pio run -e coordinator_c6 -t upload -t monitor
-```
-
-OTA upload (ETH Elite):
-```
-pio run -e coordinator_eth_elite_ota -t upload
-```
+---
 
 ## Development Stack
 
@@ -234,6 +286,8 @@ pio run -e coordinator_eth_elite_ota -t upload
 | OLED display (ESP8266) | Adafruit SSD1306 + GFX | `gateway_esp8266` |
 | Coordinator MCU | ESP32-C6, ESP32-S3, LilyGo T8-S3, LilyGo T-ETH Elite | Coordinator |
 | Sensor MCU | Generic ESP32, ESP32-C6, LilyGo T8-S3 (ESP32-S3), Wemos D1 (ESP8266) | Sensor nodes |
+
+---
 
 ## License
 
