@@ -24,8 +24,12 @@
 #include <PubSubClient.h>
 extern void setupETH();
 extern void loopETH();
-extern bool isEthConnected();
-extern bool isEthLinkUp();
+extern bool   isEthConnected();
+extern bool   isEthLinkUp();
+extern String getEthSubnet();
+extern String getEthDNS();
+extern bool   isNtpSynced();
+extern String getNtpTimeStr();
 
 // --- MQTT client (ETH Elite only) ---
 static WiFiClient    _mqttNetClient;

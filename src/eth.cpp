@@ -6,12 +6,22 @@
 #include <WiFi.h>       // WiFi.onEvent() is the correct bus for ETH events
 #include <ArduinoOTA.h>
 #include <ESPmDNS.h>
+#include <time.h>
 
 #ifndef MESH_HOSTNAME
   #define MESH_HOSTNAME "universalmesh"
 #endif
 #ifndef OTA_PASSWORD
   #define OTA_PASSWORD "mesh1234"
+#endif
+#ifndef NTP_SERVER
+  #define NTP_SERVER "pool.ntp.org"
+#endif
+#ifndef NTP_GMT_OFFSET_SEC
+  #define NTP_GMT_OFFSET_SEC 0
+#endif
+#ifndef NTP_DAYLIGHT_OFFSET_SEC
+  #define NTP_DAYLIGHT_OFFSET_SEC 0
 #endif
 
 // LilyGo T-ETH Elite ESP32-S3 — W5500 SPI Ethernet pin assignments
@@ -27,6 +37,27 @@ static bool ethConnected = false;
 static bool ethLinkUp    = false;
 static bool otaStarted   = false;
 static bool mdnsStarted  = false;
+static bool ntpStarted   = false;
+
+static void startNTP() {
+    if (ntpStarted) return;
+    configTime(NTP_GMT_OFFSET_SEC, NTP_DAYLIGHT_OFFSET_SEC, NTP_SERVER, "time.nist.gov");
+    ntpStarted = true;
+    Serial.printf("[NTP] Sync started — server: %s  offset: %+ds\n", NTP_SERVER, NTP_GMT_OFFSET_SEC);
+}
+
+bool isNtpSynced() {
+    return time(nullptr) > 1000000000UL;
+}
+
+String getNtpTimeStr() {
+    if (!isNtpSynced()) return "not synced";
+    struct tm t;
+    getLocalTime(&t);
+    char buf[24];
+    strftime(buf, sizeof(buf), "%Y-%m-%d %H:%M:%S", &t);
+    return String(buf);
+}
 
 static void startOTA() {
     if (otaStarted) return;
@@ -65,11 +96,13 @@ static void startMDNS() {
 
 bool   isEthConnected()  { return ethConnected; }
 bool   isEthLinkUp()     { return ethLinkUp; }
-String getEthLocalIP()   { return ETH.localIP().toString(); }
-String getEthMAC()       { return ETH.macAddress(); }
-String getEthGateway()   { return ETH.gatewayIP().toString(); }
-int    getEthLinkSpeed() { return ETH.linkSpeed(); }
-bool   isEthFullDuplex() { return ETH.fullDuplex(); }
+String getEthLocalIP()    { return ETH.localIP().toString(); }
+String getEthMAC()        { return ETH.macAddress(); }
+String getEthGateway()    { return ETH.gatewayIP().toString(); }
+String getEthSubnet()     { return ETH.subnetMask().toString(); }
+String getEthDNS()        { return ETH.dnsIP().toString(); }
+int    getEthLinkSpeed()  { return ETH.linkSpeed(); }
+bool   isEthFullDuplex()  { return ETH.fullDuplex(); }
 
 static void onEthEvent(arduino_event_id_t event) {
     switch (event) {
@@ -90,6 +123,7 @@ static void onEthEvent(arduino_event_id_t event) {
             ethConnected = true;
             startOTA();
             startMDNS();
+            startNTP();
             break;
         case ARDUINO_EVENT_ETH_LOST_IP:
             Serial.println("[ETH] Lost IP");

@@ -9,10 +9,14 @@
 #include <freertos/semphr.h>
 
 #ifdef LILYGO_T_ETH_ELITE
+extern bool    isNtpSynced();
+extern String  getNtpTimeStr();
 extern bool    isEthConnected();
 extern String  getEthLocalIP();
 extern String  getEthMAC();
 extern String  getEthGateway();
+extern String  getEthSubnet();
+extern String  getEthDNS();
 extern int     getEthLinkSpeed();
 extern bool    isEthFullDuplex();
 extern uint8_t getMeshChannel();
@@ -118,6 +122,7 @@ R"rawliteral(
       <div class="row"><span class="lbl">Free Heap</span><span class="val" id="heap">-</span></div>
       <div class="row"><span class="lbl">MAC</span><span class="val" id="esp-mac">-</span></div>
       <div class="row"><span class="lbl">Uptime</span><span class="val" id="uptime">-</span></div>
+      <div class="row"><span class="lbl">Time</span><span class="val" id="ntp-time">-</span></div>
     </div>
     <div class="card" id="wifi-card">
       <h2>WiFi</h2>
@@ -131,7 +136,9 @@ R"rawliteral(
       <h2>Ethernet</h2>
       <div class="row"><span class="lbl">Status</span><span class="val" id="eth-status">-</span></div>
       <div class="row"><span class="lbl">IP</span><span class="val" id="eth-ip">-</span></div>
+      <div class="row"><span class="lbl">Subnet</span><span class="val" id="eth-subnet">-</span></div>
       <div class="row"><span class="lbl">Gateway</span><span class="val" id="eth-gw">-</span></div>
+      <div class="row"><span class="lbl">DNS</span><span class="val" id="eth-dns">-</span></div>
       <div class="row"><span class="lbl">MAC</span><span class="val" id="eth-mac">-</span></div>
       <div class="row"><span class="lbl">Speed</span><span class="val" id="eth-speed">-</span></div>
     </div>
@@ -186,7 +193,7 @@ R"rawliteral(
     <div id="log-empty" class="empty">No packets yet</div>
     <div style="overflow-x:auto">
     <table id="log-table" style="display:none;min-width:480px">
-      <thead><tr><th>Type</th><th>From</th><th>App</th><th>Payload</th><th>Age</th></tr></thead>
+      <thead><tr><th>Type</th><th>From</th><th>App</th><th>Payload</th><th id="log-time-hdr">Age</th></tr></thead>
       <tbody id="log-body"></tbody>
     </table>
     </div>
@@ -290,7 +297,7 @@ R"rawliteral(
           +'<td>'+(nodeNames_[p.src.toUpperCase()]||p.src)+'</td>'
           +'<td>0x'+p.appId.toString(16).padStart(2,'0')+'</td>'
           +'<td>'+(p.appId===0x06?'[announce] '+p.payload:p.appId===0x05?'[heartbeat] '+(nodeNames_[p.origSrc.toUpperCase()]||nodeNames_[p.src.toUpperCase()]||p.origSrc):p.appId===0x00?({0x12:'[discovery ping]',0x13:'[discovery pong]'}[p.type]||'[discovery]')+(p.origSrc!==p.src?' <span class="muted">from '+(p.origSrc.toUpperCase()===coordMac_?'[coordinator]':p.origSrc)+'</span>':''):p.payload)+'</td>'
-          +'<td>'+p.age_s+'s</td>'
+          +'<td>'+fmtPacketTime(p.age_s)+'</td>'
           +'</tr>';
       });
     }
@@ -308,6 +315,12 @@ R"rawliteral(
     }
     function fmtBytes(b){return b>1048576?(b/1048576).toFixed(1)+' MB':b>1024?(b/1024).toFixed(1)+' KB':b+' B'}
     function set(id,v){document.getElementById(id).textContent=v}
+    let _ntpRef=null; // Date object representing "now" at last fetch, null if not synced
+    function fmtPacketTime(age_s){
+      if(!_ntpRef) return age_s+'s ago';
+      const t=new Date(_ntpRef.getTime()-age_s*1000);
+      return t.toTimeString().slice(0,8); // HH:MM:SS
+    }
 
     // --- Mesh topology force graph ---
     let _topoRunning=false,_topoAnim=null,_topoNodes=[],_topoEdges=[],_topoMap=new Map(),_topoSel=null,_stCache={};
@@ -439,6 +452,7 @@ R"rawliteral(
         set('heap',     fmtBytes(st.free_heap));
         set('esp-mac',  st.esp_mac);
         set('uptime',   fmtUptime(st.uptime_ms));
+        set('ntp-time', st.ntp_synced ? st.ntp_time : 'syncing…');
         set('ssid',     st.ssid);
         set('ip',       st.ip);
         set('gw',       st.gateway);
@@ -451,7 +465,9 @@ R"rawliteral(
           document.getElementById('eth-card').style.display='';
           set('eth-status', st.eth_connected ? '🟢 Connected' : '🔴 Disconnected');
           set('eth-ip',     st.eth_ip);
+          set('eth-subnet', st.eth_subnet);
           set('eth-gw',     st.eth_gateway);
+          set('eth-dns',    st.eth_dns);
           set('eth-mac',    st.eth_mac);
           set('eth-speed',  st.eth_connected ? st.eth_speed_mbps+'Mbps '+(st.eth_full_duplex?'Full':'Half')+'-Duplex' : '-');
           document.getElementById('mesh-card').style.display='';
@@ -479,6 +495,8 @@ R"rawliteral(
         }
 
         _stCache=st;
+        _ntpRef=st.ntp_synced?new Date(st.ntp_time.replace(' ','T')):null;
+        document.getElementById('log-time-hdr').textContent=_ntpRef?'Time':'Age';
         coordMac_=st.esp_mac.toUpperCase();
         nodeNames_={};
         if(nd.nodes) nd.nodes.forEach(n=>{ if(n.name) nodeNames_[n.mac.toUpperCase()]=n.name; });
@@ -564,9 +582,13 @@ void initWebDashboard(AsyncWebServer& server) {
     json += "\"eth_ip\":\""         + (ethOk ? getEthLocalIP() : "")        + "\",";
     json += "\"eth_mac\":\""        + getEthMAC()                           + "\",";
     json += "\"eth_gateway\":\""    + (ethOk ? getEthGateway() : "")        + "\",";
+    json += "\"eth_subnet\":\""     + (ethOk ? getEthSubnet() : "")         + "\",";
+    json += "\"eth_dns\":\""        + (ethOk ? getEthDNS() : "")            + "\",";
     json += "\"eth_speed_mbps\":"   + String(ethOk ? getEthLinkSpeed() : 0) + ",";
     json += "\"eth_full_duplex\":"  + String(ethOk && isEthFullDuplex() ? "true" : "false") + ",";
-    json += "\"mesh_channel\":"     + String(getMeshChannel());
+    json += "\"mesh_channel\":"     + String(getMeshChannel()) + ",";
+    json += "\"ntp_synced\":"       + String(isNtpSynced() ? "true" : "false") + ",";
+    json += "\"ntp_time\":\""       + getNtpTimeStr() + "\"";
 #else
     json += "\"eth_present\":false";
 #endif
