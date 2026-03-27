@@ -2,7 +2,7 @@
 #include <esp_wifi.h>
 #include "UniversalMesh.h"
 
-#define nodeName "sensor-c6"
+#define nodeName "esp32-sensor"
 #define WIFI_CHANNEL        1
 #define HEARTBEAT_INTERVAL  60000
 #define TEMP_INTERVAL       30000

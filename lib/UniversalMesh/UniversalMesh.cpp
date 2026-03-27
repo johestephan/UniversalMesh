@@ -17,7 +17,11 @@ bool UniversalMesh::begin(uint8_t channel) {
     // esp_wifi_set_channel(channel, WIFI_SECOND_CHAN_NONE); // patched: STA mode, AP controls channel
   #endif
   
-  esp_wifi_get_mac(WIFI_IF_STA, _myMac);
+  #if defined(ESP32)
+    esp_wifi_get_mac(WIFI_IF_STA, _myMac);
+  #else
+    WiFi.macAddress(_myMac);
+  #endif
 
   if (esp_now_init() != 0) return false;
 

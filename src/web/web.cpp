@@ -117,7 +117,7 @@ static const char HTML[] PROGMEM = R"rawliteral(
     .dot{display:inline-block;width:8px;height:8px;border-radius:50%;background:var(--dot-green);margin-right:6px}
     .sub{color:var(--sub);font-size:0.78em;margin-top:6px}
     .empty{color:var(--empty);font-size:0.82em;padding:8px 0}
-    .theme-btn{margin-left:auto;background:none;border:1px solid var(--border);border-radius:6px;padding:4px 8px;cursor:pointer;font-size:1em;line-height:1}
+    .theme-btn{margin-left:auto;background:none;border:1px solid var(--border);border-radius:6px;padding:4px 8px;cursor:pointer;font-size:1em;line-height:1;color:var(--text)}
     .btn{font-family:monospace;font-size:0.75em;padding:2px 8px;border-radius:3px;border:1px solid var(--btn-border);background:var(--btn-bg);color:var(--btn-color);cursor:pointer}
     .btn-red{color:#f85149}
     .sel{font-family:monospace;font-size:0.83em;background:var(--sel-bg);color:var(--sel-color);border:1px solid var(--sel-border);border-radius:3px;padding:2px 4px}
@@ -135,7 +135,7 @@ static const char HTML[] PROGMEM = R"rawliteral(
 </head>
 <body>
   <div class="container">
-  <h1><span class="dot"></span>UniversalMesh Coordinator<button class="theme-btn" onclick="toggleTheme()" id="theme-btn" title="Toggle dark/light mode">🌙</button><button class="theme-btn" onclick="rebootDevice()" id="reboot-btn" title="Reboot coordinator" style="margin-left:6px;color:#f85149">↺</button><button class="theme-btn" onclick="toggleConsole()" id="console-btn" title="Toggle serial console" style="margin-left:6px;font-size:0.8em">&gt;_</button></h1>
+  <h1><span class="dot"></span>UniversalMesh Coordinator<button class="theme-btn" onclick="toggleConsole()" id="console-btn" title="Toggle serial console" style="font-size:0.8em">&gt;_</button><button class="theme-btn" onclick="rebootDevice()" id="reboot-btn" title="Reboot coordinator" style="margin-left:6px;color:#f85149">↺</button><button class="theme-btn" onclick="toggleTheme()" id="theme-btn" title="Toggle dark/light mode" style="margin-left:6px">🌙</button></h1>
   <div class="grid">
     <div class="card">
       <h2>ESP</h2>
@@ -259,7 +259,7 @@ static const char HTML[] PROGMEM = R"rawliteral(
           +'<td><span class="tag">'+({0x12:'PING',0x13:'PONG',0x15:'DATA'}[p.type]||'0x'+p.type.toString(16).padStart(2,'0'))+'</span></td>'
           +'<td>'+p.src+'</td>'
           +'<td>0x'+p.appId.toString(16).padStart(2,'0')+'</td>'
-          +'<td>'+p.payload+'</td>'
+          +'<td>'+(p.appId===0x05?'[heartbeat]':p.appId===0x00?({0x12:'[discovery ping]',0x13:'[discovery pong]'}[p.type]||'[discovery]'):p.payload)+'</td>'
           +'<td>'+p.age_s+'s</td>'
           +'</tr>';
       });
