@@ -118,7 +118,12 @@ Each sensor node:
 2. Every `HEARTBEAT_INTERVAL` ms (default 60 s), sends an **AppId `0x05`** heartbeat and re-sends the announce.
 3. Sends sensor readings (e.g. temperature/humidity) as **AppId `0x01`** data packets.
 
-The `nodeName` is defined per-node with `#define nodeName "my-node"` at the top of the source file.
+`NODE_NAME` is set per-environment as a build flag in `platformio.ini`:
+```ini
+build_flags =
+    -D NODE_NAME=\"my-node\"
+```
+If not set, it falls back to `"sensor-node"` via an `#ifndef` guard in the source.
 
 ## ETH Elite Features
 
@@ -135,7 +140,7 @@ The `coordinator_eth_elite` / `coordinator_eth_elite_ota` builds add:
   ```
   pio run -e coordinator_eth_elite_ota -t upload
   ```
-- **mDNS** — reachable at `universalmesh.local` (or your custom `MESH_HOSTNAME`).
+- **mDNS** — reachable at `universalmesh.local` (hostname set via the `MESH_HOSTNAME` build flag in `platformio.ini`).
 - **Mesh channel selector** — change ESP-NOW channel (1–13) via the dashboard, persisted to NVS across reboots.
 
 ## RGB LED (ESP32-C6 Coordinator)
@@ -163,35 +168,42 @@ python3 messenger.py -l -n 10 -i 1.0         # send 10 messages, 1 s apart
 
 Edit `COORDINATOR_IP` at the top of the file to point to your coordinator.
 
-## Configuration — `include/secrets.h`
+## Configuration
 
-Create this file before building:
+### `include/secrets.h` — credentials (git-ignored)
+
+Create this file before building. It holds secrets only:
 
 ```cpp
 // WiFi (all coordinators)
 #define WIFI_SSID "your-ssid"
 #define WIFI_PASS "your-password"
 
-// MQTT (ETH Elite only)
-#define MQTT_BROKER "192.168.1.x"   // broker IP or hostname
+// MQTT broker (ETH Elite only)
+#define MQTT_BROKER "192.168.1.x"   // IP or hostname
 #define MQTT_PORT   1883
 #define MQTT_USER   ""              // leave empty if not required
 #define MQTT_PASS   ""
+```
 
-// OTA (ETH Elite only, optional override)
-// #define OTA_PASSWORD "mesh1234"
+### `platformio.ini` build flags — non-secret settings
 
-// NTP (ETH Elite only, optional overrides)
-// #define NTP_SERVER              "pool.ntp.org"
-// #define NTP_GMT_OFFSET_SEC      3600    // e.g. UTC+1
-// #define NTP_DAYLIGHT_OFFSET_SEC 3600
+Network identity, OTA and NTP are set as build flags per environment:
+
+```ini
+build_flags =
+    -D MESH_HOSTNAME=\"universalmesh\"   ; mDNS name and MQTT path prefix
+    -D MESH_NETWORK=\"mymesh\"           ; MQTT topic root
+    -D OTA_PASSWORD=\"mesh1234\"         ; keep in sync with upload_flags --auth=
+    -D NTP_SERVER=\"pool.ntp.org\"
+    -D NTP_GMT_OFFSET_SEC=3600          ; UTC offset in seconds (e.g. 3600 = UTC+1)
 ```
 
 ## Installation
 
 1. Clone or copy the `lib/UniversalMesh/` folder into your project's `lib/` directory.
 2. Create `include/secrets.h` with your credentials (see above).
-3. In `platformio.ini`, use the `pioarduino` platform for ESP32-C6/S3 support.
+3. All ESP32 environments use the `pioarduino` platform (set as the default in `[platformio]`). ESP8266 environments (`sensor_wemos_d1`, `gateway_esp8266`) use the standard `espressif8266` platform — no changes needed.
 
 ## Build
 
@@ -207,15 +219,21 @@ pio run -e coordinator_eth_elite_ota -t upload
 
 ## Development Stack
 
-| Component | Technology |
-| :--- | :--- |
-| Core firmware | C++17 (Arduino / ESP-IDF) |
-| Web server | ESP Async WebServer (mathieucarbou fork) |
-| JSON | ArduinoJson 7.x |
-| MQTT | PubSubClient 2.x |
-| Build system | PlatformIO |
-| Coordinator MCU | ESP32-C6 (RISC-V), ESP32-S3, LilyGo T-ETH Elite |
-| Sensor MCU | ESP32, ESP32-C6, ESP32-S3, ESP8266 |
+| Component | Technology | Scope |
+| :--- | :--- | :--- |
+| Core firmware | C++17 (Arduino / ESP-IDF) | All |
+| Build system | PlatformIO | All |
+| Mesh transport | ESP-NOW (ESP-IDF) | All |
+| Web server | ESP Async WebServer (mathieucarbou fork) | Coordinator |
+| Async TCP | AsyncTCP (mathieucarbou fork) | Coordinator (ESP32) |
+| JSON | ArduinoJson 7.x | All |
+| MQTT | PubSubClient 2.x | Coordinator (ETH Elite) |
+| RGB LED | Adafruit NeoPixel 1.12.3 | Coordinator C6 |
+| Temperature / humidity | Adafruit SHT31 Library | `sensor_wemos_d1` |
+| OLED display (ESP32) | U8g2 | `sensor_wemos_d1` |
+| OLED display (ESP8266) | Adafruit SSD1306 + GFX | `gateway_esp8266` |
+| Coordinator MCU | ESP32-C6 (RISC-V), ESP32-S3, LilyGo T-ETH Elite | Coordinator |
+| Sensor MCU | ESP32, ESP32-C6, ESP32-S3, ESP8266 | Sensor nodes |
 
 ## License
 
