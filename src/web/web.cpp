@@ -299,7 +299,7 @@ R"rawliteral(
           +'<td><span class="tag">'+({0x12:'PING',0x13:'PONG',0x15:'DATA'}[p.type]||'0x'+p.type.toString(16).padStart(2,'0'))+'</span></td>'
           +'<td>'+(nodeNames_[p.src.toUpperCase()]||p.src)+'</td>'
           +'<td>0x'+p.appId.toString(16).padStart(2,'0')+'</td>'
-          +'<td>'+(p.appId===0x06?'[announce] '+p.payload:p.appId===0x05?'[heartbeat] '+(nodeNames_[p.origSrc.toUpperCase()]||nodeNames_[p.src.toUpperCase()]||p.origSrc):p.appId===0x00?({0x12:'[discovery ping]',0x13:'[discovery pong]'}[p.type]||'[discovery]')+(p.origSrc!==p.src?' <span class="muted">from '+(p.origSrc.toUpperCase()===coordMac_?'[coordinator]':p.origSrc)+'</span>':''):p.payload)+'</td>'
+          +'<td>'+(p.appId===0x06?'[announce] '+p.payload:p.appId===0x05?'[heartbeat] '+(nodeNames_[p.origSrc.toUpperCase()]||nodeNames_[p.src.toUpperCase()]||p.origSrc):p.appId===0x00?({0x12:'[discovery ping]',0x13:'[discovery pong]'}[p.type]||'[discovery]')+(p.origSrc!==p.src?' <span class="muted">from '+(p.origSrc.toUpperCase()===coordMac_?'[coordinator]':(nodeNames_[p.origSrc.toUpperCase()]||p.origSrc))+'</span>':''):p.payload)+'</td>'
           +'<td>'+(p._time?p._time.toTimeString().slice(0,8):p.age_s+'s ago')+'</td>'
           +'</tr>';
       });
