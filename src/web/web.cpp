@@ -152,7 +152,7 @@ R"rawliteral(
       </div>
       <div id="nodes-empty" class="empty">No nodes discovered yet</div>
       <table id="nodes-table" style="display:none">
-        <thead><tr><th>Node</th><th>Last Seen</th></tr></thead>
+        <thead><tr><th onclick="sortNodes('name')" style="cursor:pointer;user-select:none">Node <span id="sort-node-icon"></span></th><th onclick="sortNodes('seen')" style="cursor:pointer;user-select:none">Last Seen <span id="sort-seen-icon">&#9650;</span></th></tr></thead>
         <tbody id="nodes-body"></tbody>
       </table>
     </div>
@@ -271,6 +271,38 @@ R"rawliteral(
     let logPackets_=[];
     let coordMac_='';
     let nodeNames_={};
+    let nodeSort_={col:'seen',asc:true};
+    let lastNodes_=[];
+    function sortNodes(col){
+      if(nodeSort_.col===col) nodeSort_.asc=!nodeSort_.asc;
+      else{ nodeSort_.col=col; nodeSort_.asc=(col==='seen'); }
+      document.getElementById('sort-node-icon').innerHTML=nodeSort_.col==='name'?(nodeSort_.asc?'&#9650;':'&#9660;'):'';
+      document.getElementById('sort-seen-icon').innerHTML=nodeSort_.col==='seen'?(nodeSort_.asc?'&#9650;':'&#9660;'):'';
+      renderNodes(lastNodes_);
+    }
+    function renderNodes(nodes){
+      lastNodes_=nodes;
+      const nb=document.getElementById('nodes-body');
+      nb.innerHTML='';
+      if(!nodes||!nodes.length){ document.getElementById('nodes-empty').style.display=''; document.getElementById('nodes-table').style.display='none'; return; }
+      document.getElementById('nodes-empty').style.display='none';
+      document.getElementById('nodes-table').style.display='';
+      const blueDot='<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#58a6ff;margin-right:6px"></span>';
+      nb.innerHTML='<tr><td>'+blueDot+'<span style="color:#58a6ff;font-weight:bold">coordinator</span><br><span style="font-size:0.85em;color:var(--muted)">'+coordMac_+'</span></td><td>-</td></tr>';
+      const others=nodes.filter(n=>n.mac.toUpperCase()!==coordMac_).sort((a,b)=>{
+        if(nodeSort_.col==='name'){
+          const na=(a.name||a.mac).toLowerCase(), nb2=(b.name||b.mac).toLowerCase();
+          return nodeSort_.asc?na.localeCompare(nb2):nb2.localeCompare(na);
+        } else {
+          return nodeSort_.asc?a.last_seen_seconds_ago-b.last_seen_seconds_ago:b.last_seen_seconds_ago-a.last_seen_seconds_ago;
+        }
+      });
+      others.forEach(n=>{
+        const dot='<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+(n.last_seen_seconds_ago<=120?'#3fb950':'#f85149')+';margin-right:6px"></span>';
+        const node=n.name?'<span style="color:#58a6ff;font-weight:bold">'+n.name+'</span><br><span style="font-size:0.85em;color:var(--muted)">'+n.mac+'</span>':n.mac;
+        nb.innerHTML+='<tr><td>'+dot+node+'</td><td style="white-space:nowrap">'+n.last_seen_seconds_ago+'s ago</td></tr>';
+      });
+    }
     function logPage(dir){
       logPage_=Math.max(0,Math.min(logPage_+dir,Math.ceil(logPackets_.length/PAGE_SIZE)-1));
       renderLog();
@@ -483,24 +515,7 @@ R"rawliteral(
           fetch('/api/nodes').then(r=>r.json()),
           fetch('/api/log').then(r=>r.json())
         ]);
-        const nb=document.getElementById('nodes-body');
-        nb.innerHTML='';
-        if(nd.nodes&&nd.nodes.length){
-          document.getElementById('nodes-empty').style.display='none';
-          document.getElementById('nodes-table').style.display='';
-          const blueDot='<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#58a6ff;margin-right:6px"></span>';
-          nb.innerHTML='<tr><td>'+blueDot+'<span style="color:#58a6ff;font-weight:bold">coordinator</span><br><span style="font-size:0.85em;color:var(--muted)">'+coordMac_+'</span></td><td>-</td></tr>';
-          nd.nodes.filter(n=>n.mac.toUpperCase()!==coordMac_).sort((a,b)=>a.last_seen_seconds_ago-b.last_seen_seconds_ago).forEach(n=>{
-            const dot='<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+(n.last_seen_seconds_ago<=120?'#3fb950':'#f85149')+';margin-right:6px"></span>';
-            const node=n.name
-              ?'<span style="color:#58a6ff;font-weight:bold">'+n.name+'</span><br><span style="font-size:0.85em;color:var(--muted)">'+n.mac+'</span>'
-              :n.mac;
-            nb.innerHTML+='<tr><td>'+dot+node+'</td><td style="white-space:nowrap">'+n.last_seen_seconds_ago+'s ago</td></tr>';
-          });
-        }else{
-          document.getElementById('nodes-empty').style.display='';
-          document.getElementById('nodes-table').style.display='none';
-        }
+        renderNodes(nd.nodes||[]);
         nodeNames_={};
         if(nd.nodes) nd.nodes.forEach(n=>{ if(n.name) nodeNames_[n.mac.toUpperCase()]=n.name; });
         const destSel=document.getElementById('msg-dest');
