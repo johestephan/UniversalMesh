@@ -7,6 +7,7 @@ A lightweight, Layer-3 mesh networking protocol built on top of ESP-NOW for ESP3
 - [Features](#features)
 - [Architecture](#architecture)
   - [Packet Structure](#packet-structure)
+  - [Packet Type Reference](#packet-type-reference)
   - [AppId Reference](#appid-reference)
   - [Coordinator Discovery](#coordinator-discovery)
 - [Supported Hardware](#supported-hardware)
@@ -64,6 +65,15 @@ The library uses a fixed-size packed struct:
 | `appId` | 1 byte | Application multiplexer — see table below |
 | `payloadLen` | 1 byte | Payload length (max 64) |
 | `payload` | 64 bytes | Raw binary payload |
+
+### Packet Type Reference
+
+| Type | Name | Description |
+| :--- | :--- | :--- |
+| `0x12` | PING | Broadcast by a node to discover the coordinator. Every node auto-replies with a PONG |
+| `0x13` | PONG | Reply to a PING. `payload[0]=0x01` = coordinator, `payload[0]=0x00` = regular node |
+| `0x14` | ACK | Acknowledgement (reserved for future use) |
+| `0x15` | DATA | Application data packet — see AppId table below |
 
 ### AppId Reference
 
