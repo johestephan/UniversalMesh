@@ -18,6 +18,12 @@
 #define MESH_TYPE_ACK    0x14
 #define MESH_TYPE_DATA   0x15
 
+// --- ROLES ---
+enum MeshRole {
+  MESH_NODE = 0,
+  MESH_COORDINATOR = 1
+};
+
 // --- UNIVERSAL MESH PACKET ---
 struct __attribute__((packed)) MeshPacket {
   uint8_t  type;        
@@ -37,22 +43,39 @@ class UniversalMesh {
   public:
     UniversalMesh();
     
-    // Initialize the mesh on a specific Wi-Fi channel
-    bool begin(uint8_t channel);
+    // Initialize the mesh on a specific Wi-Fi channel with a specific role
+    bool begin(uint8_t channel, MeshRole role = MESH_NODE);
     
-    // Send a payload to a specific MAC (or broadcast)
+    // Core send function
     bool send(uint8_t destMac[6], uint8_t type, uint8_t appId, const uint8_t* payload, uint8_t len, uint8_t ttl = 4);
+    
+    // The Lazy Sender: Shoots data directly to the known Coordinator
+    bool sendToCoordinator(uint8_t appId, uint8_t* payload, uint8_t len);
+
+    // Channel Sweeper: Hunts for the Coordinator across all Wi-Fi channels
+   uint8_t findCoordinatorChannel(const char* nodeName = nullptr);
+
+    // RTC Memory Helpers
+    void setCoordinatorMac(uint8_t* mac);
+    void getCoordinatorMac(uint8_t* mac);
+    bool isCoordinatorFound();
     
     // Register a function to handle incoming messages meant for this node
     void onReceive(MeshReceiveCallback callback);
 
-    // Give the library a chance to process background tasks (WDT safe)
+    // Give the library a chance to process background tasks
     void update(); 
 
   private:
     uint8_t _myMac[6];
     uint8_t _broadcastMac[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
     MeshReceiveCallback _userCallback;
+
+    // State Management for Auto-Discovery
+    MeshRole _role;
+    uint8_t _coordinatorMac[6];
+    bool _coordinatorFound;
+    unsigned long _lastDiscoveryPing;
 
     // Type-Aware Deduplication Engine
     struct SeenMessage { uint32_t msgId; uint8_t type; };
