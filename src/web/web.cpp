@@ -214,8 +214,6 @@ R"rawliteral(
       <div style="display:flex;gap:6px;margin-bottom:6px;flex-wrap:wrap">
         <button class="btn btn-secondary" onclick="topoFreeze()" id="topo-freeze-btn" title="Freeze/unfreeze layout">&#9646;&#9646; Freeze</button>
         <button class="btn btn-secondary" onclick="topoReset()" title="Reset layout">&#8635; Reset</button>
-        <button class="btn btn-secondary" onclick="topoZoom(1.3)" title="Zoom in">&#43;</button>
-        <button class="btn btn-secondary" onclick="topoZoom(1/1.3)" title="Zoom out">&minus;</button>
       </div>
       <canvas id="topo-canvas" width="700" height="340" style="width:100%;display:block;border-radius:4px;background:var(--bg);cursor:grab"></canvas>
       <div id="topo-info" style="min-height:2.5em;margin-top:8px;padding:8px;border-radius:4px;background:var(--row-bg);font-size:0.88em;line-height:1.6"></div>
@@ -365,7 +363,7 @@ R"rawliteral(
 
     // --- Mesh topology force graph ---
     let _topoRunning=false,_topoAnim=null,_topoNodes=[],_topoEdges=[],_topoMap=new Map(),_topoSel=null,_stCache={};
-    let _topoZoom=1,_topoPanX=0,_topoPanY=0,_topoDrag=null,_topoPanning=false,_topoPanLast={x:0,y:0},_topoFrozen=false,_topoDragMoved=false;
+    let _topoPanX=0,_topoPanY=0,_topoDrag=null,_topoPanning=false,_topoPanLast={x:0,y:0},_topoFrozen=false,_topoDragMoved=false;
     function toggleTopology(){
       const p=document.getElementById('topo-panel');
       const show=p.style.display==='none';
@@ -412,23 +410,13 @@ R"rawliteral(
           const hit=topoHitNode(p.x,p.y);
           if(hit&&!hit.isCoord){hit.fixed=false;hit.vx=0;hit.vy=0;}
         });
-        cv.addEventListener('wheel',e=>{
-          e.preventDefault();
-          const r=cv.getBoundingClientRect();
-          const sx=(e.clientX-r.left)*(cv.width/r.width);
-          const sy=(e.clientY-r.top)*(cv.height/r.height);
-          const f=e.deltaY<0?1.15:1/1.15;
-          _topoPanX=sx+(_topoPanX-sx)*f;_topoPanY=sy+(_topoPanY-sy)*f;
-          _topoZoom=Math.min(4,_topoZoom*f);
-          topoClampView(cv);
-        },{passive:false});
       } else { _topoRunning=false; if(_topoAnim) cancelAnimationFrame(_topoAnim); }
     }
     function topoCanvasCoords(e,cv){
       const r=cv.getBoundingClientRect();
       const sx=(e.clientX-r.left)*(cv.width/r.width);
       const sy=(e.clientY-r.top)*(cv.height/r.height);
-      return {x:(sx-_topoPanX)/_topoZoom,y:(sy-_topoPanY)/_topoZoom};
+      return {x:sx-_topoPanX,y:sy-_topoPanY};
     }
     function topoClampView(cv){
       if(!_topoNodes.length) return;
@@ -437,13 +425,11 @@ R"rawliteral(
       const pad=50,mg=60;
       x0-=pad;x1+=pad;y0-=pad;y1+=pad;
       // minimum zoom = zoom that fits all nodes in canvas (can't zoom out further than that)
-      const fitZoom=Math.min(cv.width/(x1-x0||1),cv.height/(y1-y0||1));
-      _topoZoom=Math.min(4,Math.max(fitZoom,_topoZoom));
       // clamp pan so nodes can't scroll off screen
-      _topoPanX=Math.min(_topoPanX,(cv.width-mg)-x0*_topoZoom);
-      _topoPanX=Math.max(_topoPanX,mg-x1*_topoZoom);
-      _topoPanY=Math.min(_topoPanY,(cv.height-mg)-y0*_topoZoom);
-      _topoPanY=Math.max(_topoPanY,mg-y1*_topoZoom);
+      _topoPanX=Math.min(_topoPanX,(cv.width-mg)-x0);
+      _topoPanX=Math.max(_topoPanX,mg-x1);
+      _topoPanY=Math.min(_topoPanY,(cv.height-mg)-y0);
+      _topoPanY=Math.max(_topoPanY,mg-y1);
     }
     function topoHitNode(cx,cy){
       let hit=null;
@@ -457,19 +443,12 @@ R"rawliteral(
       btn.style.opacity=_topoFrozen?'0.65':'1';
     }
     function topoReset(){
-      _topoZoom=1;_topoPanX=0;_topoPanY=0;
+      _topoPanX=0;_topoPanY=0;
       _topoNodes.forEach(n=>{if(!n.isCoord){n.fixed=false;n.vx=0;n.vy=0;}});
       fixCoord();
       if(_topoFrozen){_topoFrozen=false;const btn=document.getElementById('topo-freeze-btn');btn.innerHTML='&#9646;&#9646; Freeze';btn.style.opacity='1';}
     }
-    function topoZoom(f){
-      const cv=document.getElementById('topo-canvas');
-      const cx=cv.width/2,cy=cv.height/2;
-      _topoPanX=cx+(_topoPanX-cx)*f;_topoPanY=cy+(_topoPanY-cy)*f;
-      _topoZoom=Math.min(4,_topoZoom*f);
-      topoClampView(cv);
-    }
-    function fixCoord(){
+function fixCoord(){
       const cv=document.getElementById('topo-canvas');
       const c=_topoMap.get(coordMac_);
       if(c){c.x=cv.width/2;c.y=cv.height/2;c.fixed=true;}
@@ -550,8 +529,7 @@ R"rawliteral(
       ctx.clearRect(0,0,cv.width,cv.height);
       ctx.save();
       ctx.translate(_topoPanX,_topoPanY);
-      ctx.scale(_topoZoom,_topoZoom);
-      ctx.strokeStyle=dark?'#3a3a5c':'#bbb'; ctx.lineWidth=1.5/_topoZoom;
+      ctx.strokeStyle=dark?'#3a3a5c':'#bbb'; ctx.lineWidth=1.5;
       es.forEach(([ai,bi])=>{
         const a=nm.get(ai),b=nm.get(bi); if(!a||!b) return;
         ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();
@@ -560,16 +538,16 @@ R"rawliteral(
         const r=n.isCoord?15:10;
         if(n===_topoSel){
           ctx.beginPath();ctx.arc(n.x,n.y,r+5,0,Math.PI*2);
-          ctx.strokeStyle='#f0c040';ctx.lineWidth=2.5/_topoZoom;ctx.stroke();
+          ctx.strokeStyle='#f0c040';ctx.lineWidth=2.5;ctx.stroke();
         }
         ctx.beginPath();ctx.arc(n.x,n.y,r,0,Math.PI*2);
         ctx.fillStyle=n.isCoord?'#58a6ff':(n.lastSeen>120?'#f85149':'#3fb950');
-        ctx.fill(); ctx.strokeStyle=dark?'#1a1a2e':'#fff'; ctx.lineWidth=2/_topoZoom; ctx.stroke();
+        ctx.fill(); ctx.strokeStyle=dark?'#1a1a2e':'#fff'; ctx.lineWidth=2; ctx.stroke();
         if(n.fixed&&!n.isCoord){
           ctx.beginPath();ctx.arc(n.x,n.y-r-2,3,0,Math.PI*2);
           ctx.fillStyle='#f0c040';ctx.fill();
         }
-        ctx.fillStyle=dark?'#e6edf3':'#1a1a2e'; ctx.font='bold '+(11/_topoZoom<8?8:11/_topoZoom)+'px monospace'; ctx.textAlign='center';
+        ctx.fillStyle=dark?'#e6edf3':'#1a1a2e'; ctx.font='bold 11px monospace'; ctx.textAlign='center';
         ctx.fillText(n.name,n.x,n.y+r+14);
       });
       ctx.restore();
