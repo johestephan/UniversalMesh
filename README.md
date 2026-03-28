@@ -123,10 +123,11 @@ mesh.begin(WIFI_CHANNEL);         // sensor / relay — PONG replies carry paylo
 
 | Environment | Board | Notes |
 | :--- | :--- | :--- |
-| `sensor_node_esp32` | Generic ESP32 Dev Module | 4 MB flash |
-| `sensor_node_c6` | ESP32-C6 DevKitC-1 | USB CDC |
-| `sensor_node_t8_s3` | LilyGo T8-S3 | 16 MB flash, PSRAM |
-| `sensor_wemos_d1` | Wemos D1 / mini (ESP8266) | SHT30 sensor; optional OLED via `HAS_DISPLAY_SHIELD` |
+| `sensor_node_esp32` | Generic ESP32 Dev Module | 4 MB flash; sends internal CPU temperature |
+| `sensor_node_c6` | ESP32-C6 DevKitC-1 | USB CDC; sends internal CPU temperature |
+| `sensor_node_t8_s3` | LilyGo T8-S3 | 16 MB flash, PSRAM; sends internal CPU temperature |
+| `sensor_wemos_d1` | Wemos D1 / mini (ESP8266) | SHT30 real sensor; optional OLED via `HAS_DISPLAY_SHIELD` |
+| `sensor_esp8266` | NodeMCU v2 (ESP8266) | Generic ESP8266 sensor node; sends simulated temperature |
 
 ### Display Gateway
 
@@ -222,11 +223,11 @@ The coordinator serves a responsive single-page dashboard on port 80.
 | **ESP** | Chip model, cores, CPU MHz, flash size, free heap, MAC, uptime, NTP time |
 | **WiFi** | SSID, IP, gateway, RSSI, channel |
 | **Ethernet** | Status, IP, subnet, gateway, DNS, MAC, link speed/duplex *(ETH Elite only)* |
-| **Mesh Nodes** | Live list of known nodes — MAC, last-seen counter, resolved name. Sorted by last seen (most recent first), coordinator always pinned at top. Green dot = seen <120 s, red = stale |
+| **Mesh Nodes** | Live list of known nodes — MAC, last-seen counter, resolved name. Coordinator always pinned at top. Click **Node** or **Last Seen** column header to sort. Green dot = seen <120 s, red = stale |
 | **Mesh Channel** | Dropdown to switch ESP-NOW channel (1–13), persisted to NVS *(ETH Elite only)* |
 | **Send Message** | Inject a text packet to any node or broadcast directly from the browser |
 | **Packet Log** | Paginated live log (200 entries with PSRAM, 10 without). Shows type, sender, app ID, payload, timestamp. Relayed packets highlighted |
-| **Topology Map** | Force-directed canvas graph of all nodes and relay paths, inferred from packet headers. Click a node for details |
+| **Topology Map** | Force-directed canvas graph of all nodes and relay paths, inferred from packet headers. Click a node for details. Controls: Freeze/Resume physics, Reset layout, toggle MAC labels, toggle edge age labels, drag to pin a node, double-click to unpin, pan by dragging background, export as PNG |
 | **Serial Console** | Live stream of the coordinator's internal log — like a web-based serial monitor |
 
 ### UI Features

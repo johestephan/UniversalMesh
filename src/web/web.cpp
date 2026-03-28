@@ -151,8 +151,9 @@ R"rawliteral(
         <button id="ping-all-btn" onclick="pingAll()" class="btn btn-primary">Ping All</button>
       </div>
       <div id="nodes-empty" class="empty">No nodes discovered yet</div>
-      <table id="nodes-table" style="display:none">
-        <thead><tr><th onclick="sortNodes('name')" style="cursor:pointer;user-select:none">Node <span id="sort-node-icon"></span></th><th onclick="sortNodes('seen')" style="cursor:pointer;user-select:none">Last Seen <span id="sort-seen-icon">&#9650;</span></th></tr></thead>
+      <table id="nodes-table" style="display:none;table-layout:fixed;width:100%">
+        <colgroup><col style="width:auto"><col style="width:100px"></colgroup>
+        <thead><tr><th onclick="sortNodes('name')" style="cursor:pointer;user-select:none">Node <span id="sort-node-icon"></span></th><th onclick="sortNodes('seen')" style="cursor:pointer;user-select:none;text-align:right">Last Seen <span id="sort-seen-icon">&#9650;</span></th></tr></thead>
         <tbody id="nodes-body"></tbody>
       </table>
     </div>
@@ -177,13 +178,13 @@ R"rawliteral(
       <h2>Send Message</h2>
       <div class="row" style="margin-bottom:8px">
         <span class="lbl">To</span>
-        <select id="msg-dest" class="sel" style="flex:1">
+        <select id="msg-dest" class="sel" style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis">
           <option value="FF:FF:FF:FF:FF:FF">Broadcast — FF:FF:FF:FF:FF:FF</option>
         </select>
       </div>
       <div class="row" style="margin-bottom:8px">
         <span class="lbl">Text</span>
-        <input id="msg-text" class="sel" style="flex:1" placeholder="Hello mesh..." maxlength="64" onkeydown="if(event.key==='Enter')sendMsg()">
+        <input id="msg-text" class="sel" style="flex:1;min-width:0" placeholder="Hello mesh..." maxlength="64" onkeydown="if(event.key==='Enter')sendMsg()">
       </div>
       <div class="action-buttons-vertical">
         <button id="msg-send-btn" onclick="sendMsg()" class="btn btn-primary">Send (App&nbsp;0x01)</button>
@@ -295,7 +296,7 @@ R"rawliteral(
       document.getElementById('nodes-empty').style.display='none';
       document.getElementById('nodes-table').style.display='';
       const blueDot='<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#58a6ff;margin-right:6px"></span>';
-      nb.innerHTML='<tr><td>'+blueDot+'<span style="color:#58a6ff;font-weight:bold">coordinator</span><br><span style="font-size:0.85em;color:var(--muted)">'+coordMac_+'</span></td><td>-</td></tr>';
+      nb.innerHTML='<tr><td>'+blueDot+'<span style="color:#58a6ff;font-weight:bold">coordinator</span><br><span style="font-size:0.85em;color:var(--muted)">'+coordMac_+'</span></td><td style="text-align:right;white-space:nowrap">-</td></tr>';
       const others=nodes.filter(n=>n.mac.toUpperCase()!==coordMac_).sort((a,b)=>{
         if(nodeSort_.col==='name'){
           const na=(a.name||a.mac).toLowerCase(), nb2=(b.name||b.mac).toLowerCase();
@@ -307,7 +308,7 @@ R"rawliteral(
       others.forEach(n=>{
         const dot='<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+(n.last_seen_seconds_ago<=120?'#3fb950':'#f85149')+';margin-right:6px"></span>';
         const node=n.name?'<span style="color:#58a6ff;font-weight:bold">'+n.name+'</span><br><span style="font-size:0.85em;color:var(--muted)">'+n.mac+'</span>':n.mac;
-        nb.innerHTML+='<tr><td>'+dot+node+'</td><td style="white-space:nowrap">'+n.last_seen_seconds_ago+'s ago</td></tr>';
+        nb.innerHTML+='<tr><td>'+dot+node+'</td><td style="text-align:right;white-space:nowrap">'+n.last_seen_seconds_ago+'s ago</td></tr>';
       });
     }
     function logPage(dir){
