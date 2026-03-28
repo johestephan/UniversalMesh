@@ -45,7 +45,8 @@ bool UniversalMesh::begin(uint8_t channel, MeshRole role) {
     peer.channel = channel;
     esp_now_add_peer(&peer);
   #endif
-
+  UM_DEBUG_PRINTF("[MESH] ESP-NOW Initialized %02X:%02X:%02X:%02X:%02X:%02X\n", 
+                  _myMac[0], _myMac[1], _myMac[2], _myMac[3], _myMac[4], _myMac[5]);
   return true;
 }
 
@@ -82,6 +83,7 @@ bool UniversalMesh::send(uint8_t destMac[6], uint8_t type, uint8_t appId, const 
 bool UniversalMesh::sendToCoordinator(uint8_t appId, uint8_t* payload, uint8_t len) {
   if (!_coordinatorFound) return false; 
   return send(_coordinatorMac, MESH_TYPE_DATA, appId, payload, len, 4);
+  
 }
 
 uint8_t UniversalMesh::findCoordinatorChannel(const char* nodeName) {

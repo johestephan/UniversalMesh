@@ -82,10 +82,10 @@ void UniversalMeshCoordinator::handleMeshMessage(MeshPacket* packet, uint8_t* se
     if (packet->type == MESH_TYPE_DATA) {
         String topic = "mesh/telemetry/" + String(macStr) + "/" + String(packet->appId);
            // Convert the raw payload bytes directly into a String
-        String textPayload((char*)packet->payload, packet->payloadLen);
+        String hexPayload = bytesToHex(packet->payload, packet->payloadLen);
         
-        if (_mqtt.connected()) _mqtt.publish(topic.c_str(), textPayload.c_str());
-        UM_DEBUG_PRINTF("[DATA] Received from %s: %s\n", macStr, textPayload.c_str());
+        if (_mqtt.connected()) _mqtt.publish(topic.c_str(), hexPayload.c_str());
+        UM_DEBUG_PRINTF("[DATA] Received from %s: %s\n", macStr, hexPayload.c_str());
     } 
     
     // ---------------------------------------------------------
@@ -142,14 +142,19 @@ void UniversalMeshCoordinator::handleMeshMessage(MeshPacket* packet, uint8_t* se
 }
 
 // Helper to convert binary payload to a clean Hex string
-String UniversalMeshCoordinator::bytesToHex(const uint8_t* data, uint8_t len) {
-    String hexStr = "";
-    for (int i = 0; i < len; i++) {
-        char hex[3];
-        sprintf(hex, "%02X", data[i]);
-        hexStr += hex;
+String UniversalMeshCoordinator::bytesToHex(const uint8_t* data, size_t length) {
+  String hexString = "";
+  hexString.reserve(length * 2); // Optimize memory allocation
+  
+  for (size_t i = 0; i < length; i++) {
+    if (data[i] < 0x10) {
+      hexString += "0"; // Add leading zero for single-digit hex values
     }
-    return hexStr;
+    hexString += String(data[i], HEX);
+  }
+  
+  hexString.toUpperCase();
+  return hexString;
 }
 
 // MOCK DECRYPTION: Currently just copies the input to the output

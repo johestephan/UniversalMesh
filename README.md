@@ -3,7 +3,7 @@
 
 ---
 
-# UniversalMesh (v1.1.0)
+# UniversalMesh (v0.1.0_alpha)
 
 A lightweight, Layer-3 mesh networking protocol built on top of ESP-NOW for ESP32 and ESP8266. UniversalMesh eliminates the need for per-device Wi-Fi credentials by utilizing a single **Coordinator** that acts as a transparent bridge between your low-power RF mesh and your MQTT broker.
 
