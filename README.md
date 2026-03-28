@@ -70,6 +70,7 @@ The library uses a fixed-size packed struct:
 
 | Type | Name | Description |
 | :--- | :--- | :--- |
+| `0x00–0x11` | *(reserved)* | Reserved for future protocol extensions |
 | `0x12` | PING | Broadcast by a node to discover the coordinator. Every node auto-replies with a PONG |
 | `0x13` | PONG | Reply to a PING. `payload[0]=0x01` = coordinator, `payload[0]=0x00` = regular node |
 | `0x14` | ACK | Acknowledgement (reserved for future use) |
