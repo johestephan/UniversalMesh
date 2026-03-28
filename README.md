@@ -8,6 +8,7 @@ A lightweight, Layer-3 mesh networking protocol built on top of ESP-NOW for ESP3
 - [Architecture](#architecture)
   - [Packet Structure](#packet-structure)
   - [AppId Reference](#appid-reference)
+  - [Coordinator Discovery](#coordinator-discovery)
 - [Supported Hardware](#supported-hardware)
   - [Coordinators](#coordinators)
   - [Sensor Nodes](#sensor-nodes)
@@ -73,6 +74,25 @@ The library uses a fixed-size packed struct:
 | `0x02` | Raw Hex | Raw binary payload |
 | `0x05` | Heartbeat | Periodic alive signal (single byte) |
 | `0x06` | Node Announce | Node broadcasts its name; coordinator stores it in the node table |
+
+### Coordinator Discovery
+
+When a sensor node boots it has no knowledge of the coordinator's MAC address. Discovery works as follows:
+
+1. The node broadcasts a **PING** (`type=0x12`) to `FF:FF:FF:FF:FF:FF`.
+2. Every node on the mesh that receives the PING **auto-replies with a PONG** (`type=0x13`, `appId=0x00`).
+3. Only the coordinator sets `payload[0]=0x01` in its PONG. All other nodes send `payload[0]=0x00`.
+4. The sensor node ignores PONGs with `payload[0]=0x00` and locks onto the first PONG where `payload[0]=0x01` as its coordinator.
+5. If no coordinator PONG is received within 10 seconds, the node retries the broadcast automatically.
+
+This prevents a sensor node from accidentally treating a relay node or another sensor as the coordinator.
+
+To mark a node as coordinator, pass `true` to `begin()`:
+
+```cpp
+mesh.begin(WIFI_CHANNEL, true);   // coordinator — PONG replies carry payload[0]=0x01
+mesh.begin(WIFI_CHANNEL);         // sensor / relay — PONG replies carry payload[0]=0x00
+```
 
 ---
 
@@ -173,9 +193,10 @@ pio run -e coordinator_eth_elite_ota -t upload
 
 Each sensor node:
 
-1. On boot, sends an **AppId `0x06`** Node Announce packet with its `NODE_NAME` string.
-2. Every `HEARTBEAT_INTERVAL` ms (default 60 s), sends an **AppId `0x05`** heartbeat and re-sends the announce.
-3. Sends sensor readings (e.g. temperature/humidity) as **AppId `0x01`** data packets.
+1. On boot, broadcasts a **PING** to discover the coordinator (see [Coordinator Discovery](#coordinator-discovery)). Retries every 10 s until a coordinator PONG is received.
+2. Once the coordinator is found, sends an **AppId `0x06`** Node Announce packet with its `NODE_NAME` string.
+3. Every `HEARTBEAT_INTERVAL` ms (default 60 s), sends an **AppId `0x05`** heartbeat and re-sends the announce.
+4. Sends sensor readings (e.g. temperature/humidity) as **AppId `0x01`** data packets.
 
 ---
 
@@ -190,7 +211,7 @@ The coordinator serves a responsive single-page dashboard on port 80.
 | **ESP** | Chip model, cores, CPU MHz, flash size, free heap, MAC, uptime, NTP time |
 | **WiFi** | SSID, IP, gateway, RSSI, channel |
 | **Ethernet** | Status, IP, subnet, gateway, DNS, MAC, link speed/duplex *(ETH Elite only)* |
-| **Mesh Nodes** | Live list of known nodes — MAC, last-seen counter, resolved name. Green dot = seen <120 s, red = stale |
+| **Mesh Nodes** | Live list of known nodes — MAC, last-seen counter, resolved name. Sorted by last seen (most recent first), coordinator always pinned at top. Green dot = seen <120 s, red = stale |
 | **Mesh Channel** | Dropdown to switch ESP-NOW channel (1–13), persisted to NVS *(ETH Elite only)* |
 | **Send Message** | Inject a text packet to any node or broadcast directly from the browser |
 | **Packet Log** | Paginated live log (200 entries with PSRAM, 10 without). Shows type, sender, app ID, payload, timestamp. Relayed packets highlighted |
