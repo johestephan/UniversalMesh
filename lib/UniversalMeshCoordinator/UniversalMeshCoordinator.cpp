@@ -85,7 +85,7 @@ void UniversalMeshCoordinator::handleMeshMessage(MeshPacket* packet, uint8_t* se
         String textPayload((char*)packet->payload, packet->payloadLen);
         
         if (_mqtt.connected()) _mqtt.publish(topic.c_str(), textPayload.c_str());
-
+        UM_DEBUG_PRINTF("[DATA] Received from %s: %s\n", macStr, textPayload.c_str());
     } 
     
     // ---------------------------------------------------------
