@@ -13,10 +13,13 @@
 #endif
 
 // --- PACKET TYPES ---
-#define MESH_TYPE_PING   0x12
-#define MESH_TYPE_PONG   0x13
-#define MESH_TYPE_ACK    0x14
-#define MESH_TYPE_DATA   0x15
+#define MESH_TYPE_PING          0x12
+#define MESH_TYPE_PONG          0x13
+#define MESH_TYPE_ACK           0x14
+#define MESH_TYPE_DATA          0x15
+#define MESH_TYPE_KEY_REQ       0x16  // Node asks for key, Coordinator replies with key
+#define MESH_TYPE_SECURE_DATA   0x17  // Coordinator decrypts and forwards
+#define MESH_TYPE_PARANOID_DATA 0x18  // Coordinator acts as a dumb pipe (End-to-End Encrypted)
 
 // --- ROLES ---
 enum MeshRole {

@@ -1,94 +1,73 @@
 #include <Arduino.h>
-#include <esp_wifi.h>
+#include <WiFi.h>
 #include "UniversalMesh.h"
 
-#define nodeName "esp32-sensor"
-#define WIFI_CHANNEL        1
-#define HEARTBEAT_INTERVAL  60000
-#define TEMP_INTERVAL       30000
+#ifndef NODE_NAME
+#define NODE_NAME "C6-Dummy-Sensor"
+#endif
+
+#define APP_ID_TEMP_HUMID 0x03
+#define SLEEP_SECONDS 30
 
 UniversalMesh mesh;
-uint8_t myMac[6]          = {0, 0, 0, 0, 0, 0};
-uint8_t coordinatorMac[6] = {0, 0, 0, 0, 0, 0};
-bool foundCoordinator = false;
-unsigned long lastAttempt   = 0;
-unsigned long lastHeartbeat = 0;
-unsigned long lastTemp      = 0;
 
-void onMeshMessage(MeshPacket* packet, uint8_t* senderMac) {
-    // If we receive a PONG, we assume it's the Coordinator replying to our discovery ping
-    if (packet->type == MESH_TYPE_PONG && !foundCoordinator) {
-        memcpy(coordinatorMac, packet->srcMac, 6);
-        foundCoordinator = true;
-        lastHeartbeat = millis() - HEARTBEAT_INTERVAL;  // fire both immediately
-        lastTemp      = millis() - TEMP_INTERVAL;
-        Serial.printf("[AUTO] Coordinator found at: %02X:%02X:%02X:%02X:%02X:%02X\n",
-                      coordinatorMac[0], coordinatorMac[1], coordinatorMac[2],
-                      coordinatorMac[3], coordinatorMac[4], coordinatorMac[5]);
-    }
-}
+// --- RTC MEMORY ---
+RTC_DATA_ATTR uint8_t rtcCoordinatorMac[6] = {0};
+RTC_DATA_ATTR uint8_t rtcChannel = 0; 
+RTC_DATA_ATTR bool rtcIsConfigured = false;
 
 void setup() {
     Serial.begin(115200);
+    delay(3000); // For Native USB debugging
+    
+    Serial.println("\n=== Sensor Node Waking Up ===");
     WiFi.mode(WIFI_STA);
     WiFi.disconnect();
 
-    if (mesh.begin(WIFI_CHANNEL)) {
-        mesh.onReceive(onMeshMessage);
-
-        uint8_t mac[6];
-        esp_wifi_get_mac(WIFI_IF_STA, mac);
-        memcpy(myMac, mac, 6);
-
-        Serial.println();
-        Serial.println();
-        Serial.println("========================================");
-        Serial.println("       UniversalMesh  -  Sensor Node   ");
-        Serial.println("========================================");
-        Serial.printf("  MAC Address : %02X:%02X:%02X:%02X:%02X:%02X\n",
-                      mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
-        Serial.printf("  Mesh Channel: %d\n", WIFI_CHANNEL);
-        Serial.printf("  Heartbeat Interval: %d ms\n", HEARTBEAT_INTERVAL);
-        Serial.printf("  Temp Interval:      %d ms\n", TEMP_INTERVAL);
-        Serial.println("========================================");
-        Serial.println("  Searching for Coordinator...");
-        Serial.println("========================================");
-        Serial.println();
+    // 1. DISCOVERY (Only runs on first boot or dropped connection)
+    if (!rtcIsConfigured || rtcChannel == 0) {
+        Serial.println("[BOOT] Network unknown. Sweeping channels...");
+        mesh.begin(1); 
+        rtcChannel = mesh.findCoordinatorChannel(NODE_NAME);
         
-        // Initial Broadcast Ping to find the Coordinator
-        uint8_t broadcast[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
-        mesh.send(broadcast, MESH_TYPE_PING, 0x00, nullptr, 0, 4);
+        if (rtcChannel > 0) {
+            mesh.getCoordinatorMac(rtcCoordinatorMac);
+            rtcIsConfigured = true;
+            Serial.printf("[BOOT] Locked on Channel %d. Saved to RTC.\n", rtcChannel);
+        } else {
+            Serial.println("[BOOT] Coordinator unreachable.");
+            esp_sleep_enable_timer_wakeup(SLEEP_SECONDS * 1000000ULL);
+            esp_deep_sleep_start();
+        }
+    }
+
+    // 2. TRANSMIT
+    if (rtcIsConfigured) {
+        mesh.begin(rtcChannel);
+        mesh.setCoordinatorMac(rtcCoordinatorMac);
+        
+        // --- Pack Payload ---
+        uint16_t temp = 2250; // 22.50 C
+        uint16_t hum = 4500;  // 45.00 %
+        uint8_t payload[4] = {
+            (uint8_t)(temp >> 8), (uint8_t)(temp & 0xFF),
+            (uint8_t)(hum >> 8),  (uint8_t)(hum & 0xFF)
+        };
+        
+        // --- Send via UniversalMesh Core ---
+        if (mesh.sendToCoordinator(APP_ID_TEMP_HUMID, payload, sizeof(payload))) {
+            Serial.println("[TX] Telemetry sent successfully!");
+        } else {
+            Serial.println("[TX] Delivery failed. Wiping RTC state.");
+            rtcIsConfigured = false;
+        }
+        
+        // 3. SLEEP
+        Serial.printf("[SLEEP] Shutting down for %d seconds.\n", SLEEP_SECONDS);
+        delay(20); 
+        esp_sleep_enable_timer_wakeup(SLEEP_SECONDS * 1000000ULL);
+        esp_deep_sleep_start();
     }
 }
 
-void loop() {
-    mesh.update();
-
-    if (foundCoordinator) {
-        unsigned long now = millis();
-
-        if (now - lastHeartbeat >= HEARTBEAT_INTERVAL) {
-            lastHeartbeat = now;
-            uint8_t heartbeat = 0x01;
-            mesh.send(coordinatorMac, MESH_TYPE_DATA, 0x05, &heartbeat, 1, 4);
-            Serial.printf("[TX] Heartbeat sent | MAC: %02X:%02X:%02X:%02X:%02X:%02X\n",
-                          myMac[0], myMac[1], myMac[2], myMac[3], myMac[4], myMac[5]);
-        }
-
-        if (now - lastTemp >= TEMP_INTERVAL) {
-            lastTemp = now;
-            float tempC = temperatureRead();
-            char payload[48];
-            snprintf(payload, sizeof(payload), "N:%s,T:%.1fC", nodeName, tempC);
-            mesh.send(coordinatorMac, MESH_TYPE_DATA, 0x01, (const uint8_t*)payload, strlen(payload), 4);
-            Serial.printf("[TX] Temperature: %s\n", payload);
-        }
-    }
-    else if (millis() - lastAttempt > 10000) {
-        // Retry discovery every 10 seconds if not found
-        lastAttempt = millis();
-        uint8_t broadcast[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
-        mesh.send(broadcast, MESH_TYPE_PING, 0x00, nullptr, 0, 4);
-        Serial.println("[RETRY] Searching for Coordinator...");
-    }
-}
+void loop() {}

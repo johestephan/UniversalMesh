@@ -26,20 +26,25 @@ class UniversalMeshCoordinator {
   public:
     UniversalMeshCoordinator();
 
-    // Initializes the mesh radio and configures the MQTT broker
-    bool begin(uint8_t channel, const char* mqttBroker, uint16_t mqttPort, const char* clientId = "MeshBridge");
+    // Added mqttUser and mqttPass (defaulting to empty strings so it doesn't break open brokers)
+    bool begin(uint8_t channel, const char* mqttBroker, uint16_t mqttPort, const char* clientId = "MeshBridge", const char* mqttUser = "", const char* mqttPass = "");
 
-    // The single function to call in loop()
     void update();
-
   private:
     UniversalMesh _mesh;
     WiFiClient _wifiClient;
     PubSubClient _mqtt;
 
-    const char* _brokerIp;
+    uint8_t _publicKey[32]; 
+    String bytesToHex(const uint8_t* data, uint8_t len);
+    bool decryptPayload(const uint8_t* input, uint8_t inputLen, uint8_t* output, uint8_t* outputLen);
+
+    String _brokerIp;
     uint16_t _brokerPort;
-    const char* _clientId;
+    String _clientId;
+    String _mqttUser;
+    String _mqttPass;
+    
     unsigned long _lastMqttReconnect;
 
     void reconnectMQTT();
