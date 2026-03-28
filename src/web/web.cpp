@@ -214,10 +214,13 @@ R"rawliteral(
       <div style="display:flex;gap:6px;margin-bottom:6px;flex-wrap:wrap">
         <button class="btn btn-secondary" onclick="topoFreeze()" id="topo-freeze-btn" title="Freeze/unfreeze layout">&#9646;&#9646; Freeze</button>
         <button class="btn btn-secondary" onclick="topoReset()" title="Reset layout">&#8635; Reset</button>
+        <button class="btn btn-secondary" onclick="topoToggleMac()" id="topo-mac-btn" title="Toggle MAC labels" style="opacity:0.55">MAC</button>
+        <button class="btn btn-secondary" onclick="topoToggleAge()" id="topo-age-btn" title="Toggle edge age labels" style="opacity:0.55">Age</button>
+        <button class="btn btn-secondary" onclick="topoExportPng()" title="Export as PNG">&#8681; PNG</button>
       </div>
       <canvas id="topo-canvas" width="700" height="340" style="width:100%;display:block;border-radius:4px;background:var(--bg);cursor:grab"></canvas>
       <div id="topo-info" style="min-height:2.5em;margin-top:8px;padding:8px;border-radius:4px;background:var(--row-bg);font-size:0.88em;line-height:1.6"></div>
-      <div style="margin-top:4px;font-size:0.8em;color:var(--sub)">Inferred from relay paths in packet log &mdash; blue = coordinator &middot; green = node &middot; click to select &middot; drag to pin &middot; double-click to unpin &middot; scroll to zoom</div>
+      <div style="margin-top:4px;font-size:0.8em;color:var(--sub)">Inferred from relay paths in packet log &mdash; blue = coordinator &middot; green = node &middot; click to select &middot; drag to pin &middot; double-click to unpin</div>
     </div>
   </div>
   <div id="console-panel" style="display:none;margin-top:15px">
@@ -363,7 +366,7 @@ R"rawliteral(
 
     // --- Mesh topology force graph ---
     let _topoRunning=false,_topoAnim=null,_topoNodes=[],_topoEdges=[],_topoMap=new Map(),_topoSel=null,_stCache={};
-    let _topoPanX=0,_topoPanY=0,_topoDrag=null,_topoPanning=false,_topoPanLast={x:0,y:0},_topoFrozen=false,_topoDragMoved=false;
+    let _topoPanX=0,_topoPanY=0,_topoDrag=null,_topoPanning=false,_topoPanLast={x:0,y:0},_topoFrozen=false,_topoDragMoved=false,_topoShowMac=false,_topoShowAge=false;
     function toggleTopology(){
       const p=document.getElementById('topo-panel');
       const show=p.style.display==='none';
@@ -441,6 +444,33 @@ R"rawliteral(
       const btn=document.getElementById('topo-freeze-btn');
       btn.innerHTML=_topoFrozen?'&#9658; Resume':'&#9646;&#9646; Freeze';
       btn.style.opacity=_topoFrozen?'0.65':'1';
+    }
+    function topoToggleMac(){
+      _topoShowMac=!_topoShowMac;
+      const btn=document.getElementById('topo-mac-btn');
+      btn.style.opacity=_topoShowMac?'1':'0.55';btn.style.fontWeight=_topoShowMac?'bold':'normal';
+    }
+    function topoToggleAge(){
+      _topoShowAge=!_topoShowAge;
+      const btn=document.getElementById('topo-age-btn');
+      btn.style.opacity=_topoShowAge?'1':'0.55';btn.style.fontWeight=_topoShowAge?'bold':'normal';
+    }
+    function topoExportPng(){
+      const cv=document.getElementById('topo-canvas');
+      const tmp=document.createElement('canvas');
+      tmp.width=cv.width;tmp.height=cv.height;
+      const tc=tmp.getContext('2d');
+      const dark=document.documentElement.getAttribute('data-theme')==='dark';
+      tc.fillStyle=dark?'#0d1117':'#ffffff';
+      tc.fillRect(0,0,tmp.width,tmp.height);
+      tc.drawImage(cv,0,0);
+      tmp.toBlob(blob=>{
+        const url=URL.createObjectURL(blob);
+        const a=document.createElement('a');
+        a.download='topology.png';a.href=url;
+        document.body.appendChild(a);a.click();document.body.removeChild(a);
+        setTimeout(()=>URL.revokeObjectURL(url),1000);
+      },'image/png');
     }
     function topoReset(){
       _topoPanX=0;_topoPanY=0;
@@ -533,6 +563,18 @@ function fixCoord(){
       es.forEach(([ai,bi])=>{
         const a=nm.get(ai),b=nm.get(bi); if(!a||!b) return;
         ctx.beginPath();ctx.moveTo(a.x,a.y);ctx.lineTo(b.x,b.y);ctx.stroke();
+        if(_topoShowAge){
+          const node=a.isCoord?b:a;
+          if(node.lastSeen!=null){
+            const mx=(a.x+b.x)/2,my=(a.y+b.y)/2;
+            const lbl=node.lastSeen+'s';
+            ctx.font='9px monospace';ctx.textAlign='center';
+            ctx.fillStyle=dark?'#30363d':'#e0e0e0';
+            ctx.fillRect(mx-14,my-9,28,12);
+            ctx.fillStyle=dark?'#8b949e':'#555';
+            ctx.fillText(lbl,mx,my);
+          }
+        }
       });
       ns.forEach(n=>{
         const r=n.isCoord?15:10;
@@ -549,6 +591,10 @@ function fixCoord(){
         }
         ctx.fillStyle=dark?'#e6edf3':'#1a1a2e'; ctx.font='bold 11px monospace'; ctx.textAlign='center';
         ctx.fillText(n.name,n.x,n.y+r+14);
+        if(_topoShowMac&&!n.isCoord){
+          ctx.fillStyle=dark?'#8b949e':'#888'; ctx.font='9px monospace';
+          ctx.fillText(n.id,n.x,n.y+r+25);
+        }
       });
       ctx.restore();
       _topoAnim=requestAnimationFrame(topoTick);
