@@ -113,7 +113,7 @@ pio run -e sensor_node_c6 -t upload -t monitor
 
 ## ⚙️ Development Stack
 * **Core Logic:** C++17 (Arduino/ESP-IDF)
-* **Coordination:** ESP32-C6 (RISC-V)
+* **dev and test Hardware:** ESP32-C6 (RISC-V)
 * **Bridge Protocol:** MQTT 3.1.1 via PubSubClient
 * **Serialization:** ArduinoJson 7.x
 * **Build Environment:** PlatformIO on Fedora 43
