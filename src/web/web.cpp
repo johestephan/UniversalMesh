@@ -490,7 +490,7 @@ R"rawliteral(
           document.getElementById('nodes-table').style.display='';
           const blueDot='<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:#58a6ff;margin-right:6px"></span>';
           nb.innerHTML='<tr><td>'+blueDot+'<span style="color:#58a6ff;font-weight:bold">coordinator</span><br><span style="font-size:0.85em;color:var(--muted)">'+coordMac_+'</span></td><td>-</td></tr>';
-          nd.nodes.filter(n=>n.mac.toUpperCase()!==coordMac_).forEach(n=>{
+          nd.nodes.filter(n=>n.mac.toUpperCase()!==coordMac_).sort((a,b)=>a.last_seen_seconds_ago-b.last_seen_seconds_ago).forEach(n=>{
             const dot='<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+(n.last_seen_seconds_ago<=120?'#3fb950':'#f85149')+';margin-right:6px"></span>';
             const node=n.name
               ?'<span style="color:#58a6ff;font-weight:bold">'+n.name+'</span><br><span style="font-size:0.85em;color:var(--muted)">'+n.mac+'</span>'
