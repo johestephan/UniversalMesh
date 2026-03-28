@@ -78,3 +78,14 @@ pio run -e coordinator_c6 -t upload -t monitor
 
 # Build a generic ESP32 sensor node
 pio run -e sensor_node_esp32 -t upload -t monitor
+```
+
+## ⚙️ Development Stack
+* **Core Logic:** C++17 (Arduino/ESP-IDF)
+* **Coordination:** ESP32-C6 (RISC-V)
+* **Bridge Protocol:** MQTT 3.1.1 via PubSubClient
+* **Serialization:** ArduinoJson 7.x
+* **Build Environment:** PlatformIO on Fedora 43
+
+## ⚖️ License
+Licensed under the Apache License, Version 2.0.
