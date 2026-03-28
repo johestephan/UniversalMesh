@@ -38,7 +38,8 @@ class UniversalMesh {
     UniversalMesh();
     
     // Initialize the mesh on a specific Wi-Fi channel
-    bool begin(uint8_t channel);
+    // Set isCoordinator=true so PONG replies carry payload[0]=0x01 (coordinator role flag)
+    bool begin(uint8_t channel, bool isCoordinator = false);
     
     // Send a payload to a specific MAC (or broadcast)
     bool send(uint8_t destMac[6], uint8_t type, uint8_t appId, const uint8_t* payload, uint8_t len, uint8_t ttl = 4);
@@ -51,6 +52,7 @@ class UniversalMesh {
 
   private:
     uint8_t _myMac[6];
+    bool    _isCoordinator = false;
     uint8_t _broadcastMac[6] = {0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF};
     MeshReceiveCallback _userCallback;
 

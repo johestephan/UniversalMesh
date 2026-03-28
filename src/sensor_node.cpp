@@ -19,7 +19,7 @@ unsigned long lastTemp      = 0;
 
 void onMeshMessage(MeshPacket* packet, uint8_t* senderMac) {
     // If we receive a PONG, we assume it's the Coordinator replying to our discovery ping
-    if (packet->type == MESH_TYPE_PONG && !foundCoordinator) {
+    if (packet->type == MESH_TYPE_PONG && packet->payload[0] == 0x01 && !foundCoordinator) {
         memcpy(coordinatorMac, packet->srcMac, 6);
         foundCoordinator = true;
         lastHeartbeat = millis() - HEARTBEAT_INTERVAL;  // fire both immediately

@@ -88,7 +88,7 @@ void showPage(uint8_t page) {
 // -------------------------------------------------------
 
 void onMeshMessage(MeshPacket* packet, uint8_t* senderMac) {
-    if (packet->type == MESH_TYPE_PONG && !foundCoordinator) {
+    if (packet->type == MESH_TYPE_PONG && packet->payload[0] == 0x01 && !foundCoordinator) {
         memcpy(coordinatorMac, packet->srcMac, 6);
         foundCoordinator = true;
         lastHeartbeat = millis() - HEARTBEAT_INTERVAL;

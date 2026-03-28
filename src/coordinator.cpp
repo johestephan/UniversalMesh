@@ -428,7 +428,7 @@ void setup() {
 #endif  // LILYGO_T_ETH_ELITE
 
   // 2. Initialize Universal Mesh on the Router's Channel
-  if (mesh.begin(chan)) {
+  if (mesh.begin(chan, true)) {
     Serial.println("[SYSTEM] Universal Mesh Online.");
     mesh.onReceive(onMeshMessage);
     char meshMsg[64];

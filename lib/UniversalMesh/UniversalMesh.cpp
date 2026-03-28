@@ -7,7 +7,8 @@ UniversalMesh::UniversalMesh() {
   _userCallback = nullptr;
 }
 
-bool UniversalMesh::begin(uint8_t channel) {
+bool UniversalMesh::begin(uint8_t channel, bool isCoordinator) {
+  _isCoordinator = isCoordinator;
   // WiFi.mode(WIFI_STA);
   // WiFi.disconnect();
   
@@ -103,7 +104,10 @@ void UniversalMesh::handleReceive(uint8_t *mac, uint8_t *data, uint8_t len) {
     
     // --- 1. PROTOCOL LAYER (Invisible to the application) ---
     if (p->type == MESH_TYPE_PING) {
-      send(p->srcMac, MESH_TYPE_PONG, 0x00, nullptr, 0, p->ttl);
+      // payload[0]=0x01 means "I am the coordinator", 0x00 means regular node.
+      // Sensor nodes use this to ignore PONGs from non-coordinators.
+      uint8_t role = _isCoordinator ? 0x01 : 0x00;
+      send(p->srcMac, MESH_TYPE_PONG, 0x00, &role, 1, p->ttl);
     }
 
     // --- 2. ROUTING LOGIC ---
