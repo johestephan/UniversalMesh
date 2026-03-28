@@ -142,7 +142,7 @@ void UniversalMeshCoordinator::handleMeshMessage(MeshPacket* packet, uint8_t* se
 }
 
 // Helper to convert binary payload to a clean Hex string
-String UniversalMeshCoordinator::bytesToHex(const uint8_t* data, size_t length) {
+String UniversalMeshCoordinator::bytesToHex(const uint8_t* data, uint8_t length) {
   String hexString = "";
   hexString.reserve(length * 2); // Optimize memory allocation
   
