@@ -1,5 +1,7 @@
 #include <Arduino.h>
-#include <esp_wifi.h>
+#if defined(ESP32)
+  #include <esp_wifi.h>
+#endif
 #include "UniversalMesh.h"
 
 #ifndef NODE_NAME
@@ -40,7 +42,11 @@ void setup() {
         mesh.onReceive(onMeshMessage);
 
         uint8_t mac[6];
-        esp_wifi_get_mac(WIFI_IF_STA, mac);
+        #if defined(ESP32)
+          esp_wifi_get_mac(WIFI_IF_STA, mac);
+        #else
+          WiFi.macAddress(mac);
+        #endif
         memcpy(myMac, mac, 6);
 
         Serial.println();
@@ -81,11 +87,15 @@ void loop() {
 
         if (now - lastTemp >= TEMP_INTERVAL) {
             lastTemp = now;
+            #if defined(ESP8266)
+            float tempC = 18.0f + (rand() % 100) / 10.0f;
+            #else
             float tempC = temperatureRead();
+            #endif
             char payload[48];
             snprintf(payload, sizeof(payload), "N:%s,T:%.1fC", NODE_NAME, tempC);
             mesh.send(coordinatorMac, MESH_TYPE_DATA, 0x01, (const uint8_t*)payload, strlen(payload), 4);
-            Serial.printf("[TX] Temperature: %s\n", payload);
+            Serial.printf("[TX] Sensor: %s\n", payload);
         }
     }
     else if (millis() - lastAttempt > 10000) {
