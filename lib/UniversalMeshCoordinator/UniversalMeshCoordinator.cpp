@@ -107,11 +107,13 @@ void UniversalMeshCoordinator::handleMeshMessage(MeshPacket* packet, uint8_t* se
         uint8_t decryptedLen = 0;
         
         // Attempt to decrypt using the Coordinator's Private Key
-        if (decryptPayload(packet->payload, packet->payloadLen, decryptedBuffer, &decryptedLen)) {
+               if (decryptPayload(packet->payload, packet->payloadLen, decryptedBuffer, &decryptedLen)) {
             String topic = "mesh/secure/" + String(macStr) + "/" + String(packet->appId);
-            String hexPayload = bytesToHex(decryptedBuffer, decryptedLen);
             
-            if (_mqtt.connected()) _mqtt.publish(topic.c_str(), hexPayload.c_str());
+            // Convert the decrypted buffer directly into a text String
+            String textPayload((char*)decryptedBuffer, decryptedLen);
+            
+            if (_mqtt.connected()) _mqtt.publish(topic.c_str(), textPayload.c_str());
             UM_DEBUG_PRINTF("[SECURITY] Decrypted payload from %s\n", macStr);
         } else {
             UM_DEBUG_PRINTLN("[SECURITY] ERROR: Failed to decrypt payload!");

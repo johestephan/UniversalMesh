@@ -75,7 +75,23 @@ This project uses a modular `platformio.ini` setup to keep environments clean fo
 * `lib/UniversalMeshCoordinator/` - The MQTT/Wi-Fi bridging extension.
 
 ## 🛠 Build & Flash
-Use PlatformIO to build and upload to your specific hardware.
+Dont forget to adjust the **secrets.h**
+```C++
+#ifndef SECRETS_H
+#define SECRETS_H
+
+#define WIFI_SSID "YOUR SSID HERE"
+#define WIFI_PASS "YOUR PASSWORD HERE"
+
+#define MQTT_BROKER "MQTT BROKER IP HERE" // Your Home Assistant or Mosquitto IP
+#define MQTT_PORT   1883
+#define MQTT_USER "your_ha_username"
+#define MQTT_PASS "your_ha_password"
+
+#endif
+```
+
+Use PlatformIO to build and upload to your specific hardware, currently this only supports esp32-c6, for more platformio.ini's go to **https://github.com/javastraat/UniversalMesh-Gui**
 
 ```bash
 # Build the production ESP32-C6 Coordinator
