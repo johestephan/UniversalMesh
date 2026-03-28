@@ -54,22 +54,6 @@ The production Coordinator utilizes the `UniversalMeshCoordinator` extension. It
 
 ---
 
-## 🎛 Dev Mode: REST API Coordinator
-For lab testing and network mapping, a development Coordinator can be compiled (`env:coordinator_dev`) which exposes a REST API on Port 80 alongside the mesh radio:
-
-| Endpoint | Method | Description |
-| :--- | :--- | :--- |
-| `/api/tx` | POST | Send data to a specific node (Hex payload). |
-| `/api/discover` | GET | Broadcast a PING to the whole mesh. |
-| `/api/nodes` | GET | View the dynamically discovered routing table. |
-
-**Example: Sending Data via `/api/tx`**
-```json
-{
-  "dest": "AA:BB:CC:DD:EE:FF",
-  "payload": "48656c6c6f204d657368"
-}
-```
 
 ## 💻 Installation & Project Structure
 This project uses a modular `platformio.ini` setup to keep environments clean for contributors.
@@ -79,8 +63,8 @@ This project uses a modular `platformio.ini` setup to keep environments clean fo
 3. Select your desired environment from the `ini/` configurations.
 
 ### Directory Layout
-* `examples/coordinators/` - Production MQTT bridges and API gateways.
-* `examples/nodes/` - Sensor endpoints, display units, and relays.
+* `examples/coordinators/` - Mesh Coordinators and Production MQTT bridges.
+* `examples/sensors/` - Mesh nodes
 * `lib/UniversalMesh/` - The core ESP-NOW routing protocol.
 * `lib/UniversalMeshCoordinator/` - The MQTT/Wi-Fi bridging extension.
 
