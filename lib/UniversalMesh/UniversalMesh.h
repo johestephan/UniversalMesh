@@ -45,7 +45,7 @@ struct __attribute__((packed)) MeshPacket {
   uint8_t  srcMac[6];   
   uint8_t  appId;       
   uint8_t  payloadLen;  
-  uint8_t  payload[64]; 
+  uint8_t  payload[200]; 
 };
 
 // Callback signature for the main sketch
@@ -60,9 +60,11 @@ class UniversalMesh {
     
     // Core send function
     bool send(uint8_t destMac[6], uint8_t type, uint8_t appId, const uint8_t* payload, uint8_t len, uint8_t ttl = 4);
+    bool send(uint8_t destMac[6], uint8_t type, uint8_t appId, String payload, uint8_t ttl = 4);
     
     // The Lazy Sender: Shoots data directly to the known Coordinator
     bool sendToCoordinator(uint8_t appId, uint8_t* payload, uint8_t len);
+    bool sendToCoordinator(uint8_t appId, String payload);
 
     // Channel Sweeper: Hunts for the Coordinator across all Wi-Fi channels
    uint8_t findCoordinatorChannel(const char* nodeName = nullptr);

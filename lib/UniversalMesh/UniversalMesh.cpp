@@ -70,7 +70,7 @@ bool UniversalMesh::send(uint8_t destMac[6], uint8_t type, uint8_t appId, const 
   p.appId = appId;
   
   if (payload != nullptr && len > 0) {
-    p.payloadLen = (len > 64) ? 64 : len;
+    p.payloadLen = (len > 200) ? 200 : len;
     memcpy(p.payload, payload, p.payloadLen);
   } else {
     p.payloadLen = 0;
@@ -79,11 +79,19 @@ bool UniversalMesh::send(uint8_t destMac[6], uint8_t type, uint8_t appId, const 
   return (esp_now_send(_broadcastMac, (uint8_t*)&p, sizeof(p)) == 0);
 }
 
+bool UniversalMesh::send(uint8_t destMac[6], uint8_t type, uint8_t appId, String payload, uint8_t ttl) {
+  return send(destMac, type, appId, (const uint8_t*)payload.c_str(), payload.length(), ttl);
+}
+
 // --- LAZY SENDER LOGIC ---
 bool UniversalMesh::sendToCoordinator(uint8_t appId, uint8_t* payload, uint8_t len) {
   if (!_coordinatorFound) return false; 
   return send(_coordinatorMac, MESH_TYPE_DATA, appId, payload, len, 4);
   
+}
+
+bool UniversalMesh::sendToCoordinator(uint8_t appId, String payload) {
+  return sendToCoordinator(appId, (uint8_t*)payload.c_str(), payload.length());
 }
 
 uint8_t UniversalMesh::findCoordinatorChannel(const char* nodeName) {
@@ -225,7 +233,7 @@ void UniversalMesh::handleReceive(uint8_t *mac, uint8_t *data, uint8_t len) {
 
     // --- 4. AUTO-RELAY LOGIC ---
     if (p->ttl > 0 && !terminalData) {
-      uint8_t relayBuffer[112]; 
+      uint8_t relayBuffer[sizeof(MeshPacket)]; 
       memcpy(relayBuffer, data, len);
       ((MeshPacket*)relayBuffer)->ttl--;
       esp_now_send(_broadcastMac, relayBuffer, len);

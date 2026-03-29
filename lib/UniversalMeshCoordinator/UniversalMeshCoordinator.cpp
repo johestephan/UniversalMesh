@@ -81,11 +81,11 @@ void UniversalMeshCoordinator::handleMeshMessage(MeshPacket* packet, uint8_t* se
     // ---------------------------------------------------------
     if (packet->type == MESH_TYPE_DATA) {
         String topic = "mesh/telemetry/" + String(macStr) + "/" + String(packet->appId);
-           // Convert the raw payload bytes directly into a String
-        String hexPayload = bytesToHex(packet->payload, packet->payloadLen);
+        // Parse the raw payload bytes directly into an ASCII String
+        String textPayload((char*)packet->payload, packet->payloadLen);
         
-        if (_mqtt.connected()) _mqtt.publish(topic.c_str(), hexPayload.c_str());
-        UM_DEBUG_PRINTF("[DATA] Received from %s: %s\n", macStr, hexPayload.c_str());
+        if (_mqtt.connected()) _mqtt.publish(topic.c_str(), textPayload.c_str());
+        UM_DEBUG_PRINTF("[DATA] Received from %s: %s\n", macStr, textPayload.c_str());
     } 
     
     // ---------------------------------------------------------
@@ -103,7 +103,7 @@ void UniversalMeshCoordinator::handleMeshMessage(MeshPacket* packet, uint8_t* se
     // 3. SECURE DATA (Coordinator Decrypts)
     // ---------------------------------------------------------
     else if (packet->type == MESH_TYPE_SECURE_DATA) {
-        uint8_t decryptedBuffer[64];
+        uint8_t decryptedBuffer[200];
         uint8_t decryptedLen = 0;
         
         // Attempt to decrypt using the Coordinator's Private Key
