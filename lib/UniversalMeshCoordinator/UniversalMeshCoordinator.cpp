@@ -81,9 +81,15 @@ void UniversalMeshCoordinator::handleMeshMessage(MeshPacket* packet, uint8_t* se
     // ---------------------------------------------------------
     if (packet->type == MESH_TYPE_DATA) {
         String topic = "mesh/telemetry/" + String(macStr) + "/" + String(packet->appId);
-        // Parse the raw payload bytes directly into an ASCII String
-        String textPayload((char*)packet->payload, packet->payloadLen);
         
+        // Safely extract the payload and ensure null-termination
+        char safePayload[201];
+        uint8_t safeLen = packet->payloadLen > 200 ? 200 : packet->payloadLen;
+        memcpy(safePayload, packet->payload, safeLen);
+        safePayload[safeLen] = '\0'; // Explicit null termination
+        
+        String textPayload(safePayload);
+
         if (_mqtt.connected()) _mqtt.publish(topic.c_str(), textPayload.c_str());
         UM_DEBUG_PRINTF("[DATA] Received from %s: %s\n", macStr, textPayload.c_str());
     } 
@@ -110,11 +116,16 @@ void UniversalMeshCoordinator::handleMeshMessage(MeshPacket* packet, uint8_t* se
                if (decryptPayload(packet->payload, packet->payloadLen, decryptedBuffer, &decryptedLen)) {
             String topic = "mesh/secure/" + String(macStr) + "/" + String(packet->appId);
             
-            // Convert the decrypted buffer directly into a text String
-            String textPayload((char*)decryptedBuffer, decryptedLen);
+            // Safely extract the decrypted payload and ensure null-termination
+            char safePayload[201];
+            uint8_t safeLen = decryptedLen > 200 ? 200 : decryptedLen;
+            memcpy(safePayload, decryptedBuffer, safeLen);
+            safePayload[safeLen] = '\0'; // Explicit null termination
             
+            String textPayload(safePayload);
+
             if (_mqtt.connected()) _mqtt.publish(topic.c_str(), textPayload.c_str());
-            UM_DEBUG_PRINTF("[SECURITY] Decrypted payload from %s\n", macStr);
+            UM_DEBUG_PRINTF("[SECURITY] Decrypted payload from %s: %s\n", macStr, textPayload.c_str());
         } else {
             UM_DEBUG_PRINTLN("[SECURITY] ERROR: Failed to decrypt payload!");
         }
