@@ -84,6 +84,8 @@ Dont forget to adjust the **secrets.h**
 #define MQTT_USER "your_ha_username"
 #define MQTT_PASS "your_ha_password"
 
+#define MESH_SECURE_KEY "MySuperSecretKey" // 16 chars, in case you want DATA_Secure
+
 #endif
 ```
 

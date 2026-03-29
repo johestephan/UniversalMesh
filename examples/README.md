@@ -2,6 +2,24 @@
 
 ## 💡 Example Usage
 
+### Adding Secure Data communication (0x17)
+
+In **secrets.h**
+```cpp
+#define MESH_SECURE_KEY "MySuperSecretKey" // Must be max 16 chars!
+``` 
+In **coordinator.cpp**
+```cpp
+bridge.setNetworkKey(MESH_SECURE_KEY); 
+// bridge.begin(...)
+```
+In **sensor_node.cpp**
+```cpp
+mesh.setNetworkKey(MESH_SECURE_KEY);
+// ... Later, when you want to send data securely:
+mesh.sendSecureToCoordinator(APP_ID_TEMP_HUMID, jsonOutput); 
+```
+
 ### Minimal Coordinator (`coordinator.cpp`)
 The coordinator connects to your local Wi-Fi and MQTT broker, then starts a mesh network on the same Wi-Fi channel. It requires a `secrets.h` file for credentials.
 
