@@ -11,6 +11,7 @@ UniversalMesh::UniversalMesh() {
   _role = MESH_NODE;
   _coordinatorFound = false;
   _lastDiscoveryPing = 0;
+  _meshKeySet = false;
   memset(_coordinatorMac, 0, 6);
 }
 
@@ -54,7 +55,13 @@ void UniversalMesh::onReceive(MeshReceiveCallback callback) {
   _userCallback = callback;
 }
 
-bool UniversalMesh::send(uint8_t destMac[6], uint8_t type, uint8_t appId, const uint8_t* payload, uint8_t len, uint8_t ttl) {
+void UniversalMesh::setNetworkKey(const char* key) {
+  memset(_meshKey, 0, 16);
+  strncpy((char*)_meshKey, key, 16);
+  _meshKeySet = true;
+}
+
+bool UniversalMesh::send(uint8_t destMac[6], uint8_t type, uint8_t appId, const uint8_t* payload, uint8_t len, uint8_t ttl, bool encrypt) {
   MeshPacket p = {};
   p.type = type;
   p.ttl = ttl;
@@ -71,7 +78,21 @@ bool UniversalMesh::send(uint8_t destMac[6], uint8_t type, uint8_t appId, const 
   
   if (payload != nullptr && len > 0) {
     p.payloadLen = (len > 200) ? 200 : len;
-    memcpy(p.payload, payload, p.payloadLen);
+    
+    if (encrypt && _meshKeySet) {
+      mbedtls_aes_context aes;
+      mbedtls_aes_init(&aes);
+      mbedtls_aes_setkey_enc(&aes, _meshKey, 128); // 128-bit AES Key
+      
+      uint8_t iv[16] = {0};
+      memcpy(iv, &p.msgId, sizeof(p.msgId)); // Use unique MsgId as IV nonce
+      
+      size_t iv_offset = 0;
+      mbedtls_aes_crypt_cfb128(&aes, MBEDTLS_AES_ENCRYPT, p.payloadLen, &iv_offset, iv, payload, p.payload);
+      mbedtls_aes_free(&aes);
+    } else {
+      memcpy(p.payload, payload, p.payloadLen);
+    }
   } else {
     p.payloadLen = 0;
   }
@@ -79,8 +100,8 @@ bool UniversalMesh::send(uint8_t destMac[6], uint8_t type, uint8_t appId, const 
   return (esp_now_send(_broadcastMac, (uint8_t*)&p, sizeof(p)) == 0);
 }
 
-bool UniversalMesh::send(uint8_t destMac[6], uint8_t type, uint8_t appId, String payload, uint8_t ttl) {
-  return send(destMac, type, appId, (const uint8_t*)payload.c_str(), payload.length(), ttl);
+bool UniversalMesh::send(uint8_t destMac[6], uint8_t type, uint8_t appId, String payload, uint8_t ttl, bool encrypt) {
+  return send(destMac, type, appId, (const uint8_t*)payload.c_str(), payload.length(), ttl, encrypt);
 }
 
 // --- LAZY SENDER LOGIC ---
@@ -92,6 +113,11 @@ bool UniversalMesh::sendToCoordinator(uint8_t appId, uint8_t* payload, uint8_t l
 
 bool UniversalMesh::sendToCoordinator(uint8_t appId, String payload) {
   return sendToCoordinator(appId, (uint8_t*)payload.c_str(), payload.length());
+}
+
+bool UniversalMesh::sendSecureToCoordinator(uint8_t appId, String payload) {
+  if (!_coordinatorFound) return false; 
+  return send(_coordinatorMac, MESH_TYPE_SECURE_DATA, appId, payload, 4, true);
 }
 
 uint8_t UniversalMesh::findCoordinatorChannel(const char* nodeName) {

@@ -48,6 +48,23 @@ void loop() {
 }
 ```
 
+This will look like this
+
+```bash
+
+======================================
+--- UniversalMesh Bridge Booting ---
+======================================
+
+[WIFI] Connecting...
+[WIFI] Connected! IP: 192.168.1.160
+[WIFI] Operating on Channel: 11
+[BRIDGE] Mesh Radio Online. Role: Coordinator.
+[BRIDGE] Connecting to MQTT Broker... Connected!
+[DISCOVERY] New Node Joined: 588C8136AF90 (C6-Dummy-Sensor)
+[DATA] Received from 588C8136AF90: {"temp":22.5,"hum":45}
+```
+
 ### Minimal Sensor Node (`sensor_node.cpp`)
 A sensor node automatically finds the coordinator, sends a JSON payload, and goes into deep sleep to conserve power. It uses RTC memory to remember the network configuration between wake-ups.
 
@@ -138,6 +155,30 @@ void loop() {
     // This part is never reached due to deep sleep
 }
 ```
+Which will look like this
+```bash
+=== Sensor Node Waking Up ===
+[BOOT] Network unknown. Sweeping channels...
+[MESH] ESP-NOW Initialized 58:8C:81:36:AF:90
+[MESH] Pinging Channel 1...
+[MESH] Pinging Channel 2...
+[MESH] Pinging Channel 3...
+[MESH] Pinging Channel 4...
+[MESH] Pinging Channel 5...
+[MESH] Pinging Channel 6...
+[MESH] Pinging Channel 7...
+[MESH] Pinging Channel 8...
+[MESH] Pinging Channel 9...
+[MESH] Pinging Channel 10...
+[MESH] Pinging Channel 11...
+[MESH] PONG received on Channel 11!
+[BOOT] Locked on Channel 11. Saved to RTC.
+[MESH] ESP-NOW Initialized 58:8C:81:36:AF:90
+[BOOT] Announcing presence to coordinator...
+[TX] Telemetry sent successfully!
+[SLEEP] Shutting down for 30 seconds.
+```
+
 
 ## 💻 Installation & Project Structure
 This project uses a modular `platformio.ini` setup to keep environments clean for contributors.

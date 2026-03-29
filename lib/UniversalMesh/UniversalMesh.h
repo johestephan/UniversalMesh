@@ -3,6 +3,8 @@
 
 #include <Arduino.h>
 
+#include <mbedtls/aes.h>
+
 #if defined(ESP8266)
   #include <ESP8266WiFi.h>
   #include <espnow.h>
@@ -58,13 +60,17 @@ class UniversalMesh {
     // Initialize the mesh on a specific Wi-Fi channel with a specific role
     bool begin(uint8_t channel, MeshRole role = MESH_NODE);
     
+    // Set a 16-character AES key for secure communications
+    void setNetworkKey(const char* key);
+    
     // Core send function
-    bool send(uint8_t destMac[6], uint8_t type, uint8_t appId, const uint8_t* payload, uint8_t len, uint8_t ttl = 4);
-    bool send(uint8_t destMac[6], uint8_t type, uint8_t appId, String payload, uint8_t ttl = 4);
+    bool send(uint8_t destMac[6], uint8_t type, uint8_t appId, const uint8_t* payload, uint8_t len, uint8_t ttl = 4, bool encrypt = false);
+    bool send(uint8_t destMac[6], uint8_t type, uint8_t appId, String payload, uint8_t ttl = 4, bool encrypt = false);
     
     // The Lazy Sender: Shoots data directly to the known Coordinator
     bool sendToCoordinator(uint8_t appId, uint8_t* payload, uint8_t len);
     bool sendToCoordinator(uint8_t appId, String payload);
+    bool sendSecureToCoordinator(uint8_t appId, String payload);
 
     // Channel Sweeper: Hunts for the Coordinator across all Wi-Fi channels
    uint8_t findCoordinatorChannel(const char* nodeName = nullptr);
@@ -91,6 +97,8 @@ class UniversalMesh {
     volatile bool _pongReceived;
     bool _coordinatorFound;
     unsigned long _lastDiscoveryPing;
+    uint8_t _meshKey[16];
+    bool _meshKeySet = false;
 
     static void espNowOnReceive(const esp_now_recv_info_t* info, const uint8_t* data, int len);
 

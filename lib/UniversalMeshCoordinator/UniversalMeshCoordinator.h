@@ -4,6 +4,7 @@
 #include <Arduino.h>
 #include <WiFi.h>
 #include <PubSubClient.h>
+#include <mbedtls/aes.h>
 #include "UniversalMesh.h"
 
 // --- DEBUG MACROS ---
@@ -29,6 +30,8 @@ class UniversalMeshCoordinator {
     // Added mqttUser and mqttPass (defaulting to empty strings so it doesn't break open brokers)
     bool begin(uint8_t channel, const char* mqttBroker, uint16_t mqttPort, const char* clientId = "MeshBridge", const char* mqttUser = "", const char* mqttPass = "");
 
+    void setNetworkKey(const char* key);
+
     void update();
   private:
     UniversalMesh _mesh;
@@ -36,8 +39,11 @@ class UniversalMeshCoordinator {
     PubSubClient _mqtt;
 
     uint8_t _publicKey[32]; 
+    uint8_t _meshKey[16];
+    bool _meshKeySet;
+
     String bytesToHex(const uint8_t* data, uint8_t len);
-    bool decryptPayload(const uint8_t* input, uint8_t inputLen, uint8_t* output, uint8_t* outputLen);
+    bool decryptPayload(MeshPacket* packet, uint8_t* output, uint8_t* outputLen);
 
     String _brokerIp;
     uint16_t _brokerPort;

@@ -5,9 +5,16 @@ UniversalMeshCoordinator* UniversalMeshCoordinator::_instance = nullptr;
 UniversalMeshCoordinator::UniversalMeshCoordinator() : _mqtt(_wifiClient) {
     _instance = this;
     _lastMqttReconnect = 0;
+    _meshKeySet = false;
     
     // Fill the public key with dummy data for now (0xAA)
     memset(_publicKey, 0xAA, 32); 
+}
+
+void UniversalMeshCoordinator::setNetworkKey(const char* key) {
+    memset(_meshKey, 0, 16);
+    strncpy((char*)_meshKey, key, 16);
+    _meshKeySet = true;
 }
 
 bool UniversalMeshCoordinator::begin(uint8_t channel, const char* mqttBroker, uint16_t mqttPort, const char* clientId, const char* mqttUser, const char* mqttPass) {
@@ -113,7 +120,7 @@ void UniversalMeshCoordinator::handleMeshMessage(MeshPacket* packet, uint8_t* se
         uint8_t decryptedLen = 0;
         
         // Attempt to decrypt using the Coordinator's Private Key
-               if (decryptPayload(packet->payload, packet->payloadLen, decryptedBuffer, &decryptedLen)) {
+        if (decryptPayload(packet, decryptedBuffer, &decryptedLen)) {
             String topic = "mesh/secure/" + String(macStr) + "/" + String(packet->appId);
             
             // Safely extract the decrypted payload and ensure null-termination
@@ -171,10 +178,23 @@ String UniversalMeshCoordinator::bytesToHex(const uint8_t* data, uint8_t length)
   return hexString;
 }
 
-// MOCK DECRYPTION: Currently just copies the input to the output
-bool UniversalMeshCoordinator::decryptPayload(const uint8_t* input, uint8_t inputLen, uint8_t* output, uint8_t* outputLen) {
-    // TODO: Replace this with actual Elliptic Curve / AES decryption
-    memcpy(output, input, inputLen);
-    *outputLen = inputLen;
-    return true; // Pretend decryption was successful
+// AES-128 CFB Decryption
+bool UniversalMeshCoordinator::decryptPayload(MeshPacket* packet, uint8_t* output, uint8_t* outputLen) {
+    if (!_meshKeySet) return false;
+
+    mbedtls_aes_context aes;
+    mbedtls_aes_init(&aes);
+    
+    // CFB128 decryption paradoxically uses the ENCRYPTION key schedule
+    mbedtls_aes_setkey_enc(&aes, _meshKey, 128); 
+    
+    uint8_t iv[16] = {0};
+    memcpy(iv, &packet->msgId, sizeof(packet->msgId)); // Reconstruct IV from MsgId
+    
+    size_t iv_offset = 0;
+    mbedtls_aes_crypt_cfb128(&aes, MBEDTLS_AES_DECRYPT, packet->payloadLen, &iv_offset, iv, packet->payload, output);
+    
+    *outputLen = packet->payloadLen;
+    mbedtls_aes_free(&aes);
+    return true; 
 }
