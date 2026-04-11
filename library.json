@@ -1,0 +1,15 @@
+{
+  "name": "UniversalMesh",
+  "version": "1.0.0",
+  "build": {
+    "srcDir": ".",
+    "flags": [
+      "-I lib/UniversalMesh",
+      "-I lib/UniversalMeshCoordinator"
+    ],
+    "srcFilter": [
+      "+<lib/UniversalMesh/>",
+      "+<lib/UniversalMeshCoordinator/>"
+    ]
+  }
+}
